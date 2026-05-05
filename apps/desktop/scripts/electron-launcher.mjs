@@ -1,4 +1,4 @@
-// This file mostly exists because we want dev mode to say "T3 Code (Dev)" instead of "electron"
+// This file mostly exists because we want dev mode to say "vFactor (Dev)" instead of "electron"
 
 import { spawnSync } from "node:child_process";
 import {
@@ -6,7 +6,6 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   statSync,
@@ -17,15 +16,15 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
-const APP_DISPLAY_NAME = isDevelopment ? "T3 Code (Dev)" : "T3 Code (Alpha)";
-const APP_BUNDLE_ID = isDevelopment ? "com.t3tools.t3code.dev" : "com.t3tools.t3code";
+const APP_DISPLAY_NAME = isDevelopment ? "vFactor (Dev)" : "vFactor";
+const APP_BUNDLE_ID = isDevelopment ? "com.t3tools.vfactor.dev" : "com.t3tools.vfactor";
 const LAUNCHER_VERSION = 2;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const desktopDir = resolve(__dirname, "..");
 const repoRoot = resolve(desktopDir, "..", "..");
 const defaultIconPath = join(desktopDir, "resources", "icon.icns");
-const developmentMacIconPngPath = join(repoRoot, "assets", "dev", "blueprint-macos-1024.png");
+const developmentMacIconIcnsPath = join(repoRoot, "assets", "vfactor", "dev", "icon.icns");
 
 function setPlistString(plistPath, key, value) {
   const replaceResult = spawnSync("plutil", ["-replace", key, "-string", value, plistPath], {
@@ -46,66 +45,12 @@ function setPlistString(plistPath, key, value) {
   throw new Error(`Failed to update plist key "${key}" at ${plistPath}: ${details}`.trim());
 }
 
-function runChecked(command, args) {
-  const result = spawnSync(command, args, { encoding: "utf8" });
-  if (result.status === 0) {
-    return;
+function resolveDevelopmentIconIcns() {
+  if (existsSync(developmentMacIconIcnsPath)) {
+    return developmentMacIconIcnsPath;
   }
 
-  const details = [result.stdout, result.stderr].filter(Boolean).join("\n");
-  throw new Error(`Failed to run ${command} ${args.join(" ")}: ${details}`.trim());
-}
-
-function ensureDevelopmentIconIcns(runtimeDir) {
-  const generatedIconPath = join(runtimeDir, "icon-dev.icns");
-  mkdirSync(runtimeDir, { recursive: true });
-
-  if (!existsSync(developmentMacIconPngPath)) {
-    return defaultIconPath;
-  }
-
-  const sourceMtimeMs = statSync(developmentMacIconPngPath).mtimeMs;
-  if (existsSync(generatedIconPath) && statSync(generatedIconPath).mtimeMs >= sourceMtimeMs) {
-    return generatedIconPath;
-  }
-
-  const iconsetRoot = mkdtempSync(join(runtimeDir, "dev-iconset-"));
-  const iconsetDir = join(iconsetRoot, "icon.iconset");
-  mkdirSync(iconsetDir, { recursive: true });
-
-  try {
-    for (const size of [16, 32, 128, 256, 512]) {
-      runChecked("sips", [
-        "-z",
-        String(size),
-        String(size),
-        developmentMacIconPngPath,
-        "--out",
-        join(iconsetDir, `icon_${size}x${size}.png`),
-      ]);
-
-      const retinaSize = size * 2;
-      runChecked("sips", [
-        "-z",
-        String(retinaSize),
-        String(retinaSize),
-        developmentMacIconPngPath,
-        "--out",
-        join(iconsetDir, `icon_${size}x${size}@2x.png`),
-      ]);
-    }
-
-    runChecked("iconutil", ["-c", "icns", iconsetDir, "-o", generatedIconPath]);
-    return generatedIconPath;
-  } catch (error) {
-    console.warn(
-      "[desktop-launcher] Failed to generate dev macOS icon, falling back to default icon.",
-      error,
-    );
-    return defaultIconPath;
-  } finally {
-    rmSync(iconsetRoot, { recursive: true, force: true });
-  }
+  return defaultIconPath;
 }
 
 function patchMainBundleInfoPlist(appBundlePath, iconPath) {
@@ -133,7 +78,7 @@ function buildMacLauncher(electronBinaryPath) {
   const runtimeDir = join(desktopDir, ".electron-runtime");
   const targetAppBundlePath = join(runtimeDir, `${APP_DISPLAY_NAME}.app`);
   const targetBinaryPath = join(targetAppBundlePath, "Contents", "MacOS", "Electron");
-  const iconPath = isDevelopment ? ensureDevelopmentIconIcns(runtimeDir) : defaultIconPath;
+  const iconPath = isDevelopment ? resolveDevelopmentIconIcns() : defaultIconPath;
   const metadataPath = join(runtimeDir, "metadata.json");
 
   mkdirSync(runtimeDir, { recursive: true });

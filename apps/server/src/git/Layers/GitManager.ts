@@ -17,6 +17,12 @@ import {
   GitActionProgressEvent,
   GitActionProgressPhase,
   GitCommandError,
+  type GitPullRequestCheck,
+  type GitPullRequestChecksResult,
+  type GitPullRequestComment,
+  type GitPullRequestCommit,
+  type GitPullRequestReview,
+  type GitPullRequestReviewComment,
   GitRunStackedActionResult,
   GitStackedAction,
   type GitStatusLocalResult,
@@ -76,6 +82,13 @@ interface OpenPrInfo {
 interface PullRequestInfo extends OpenPrInfo, PullRequestHeadRemoteInfo {
   state: "open" | "closed" | "merged";
   updatedAt: string | null;
+  description?: string | null;
+  checksStatus?: "none" | "pending" | "passed" | "failed";
+  checksError?: string | null;
+  failedChecksCount?: number;
+  failedCheckNames?: string[];
+  pendingChecksCount?: number;
+  passedChecksCount?: number;
 }
 
 interface ResolvedPullRequest {
@@ -102,6 +115,95 @@ interface BranchHeadContext {
   headRepositoryNameWithOwner: string | null;
   headRepositoryOwnerLogin: string | null;
   isCrossRepository: boolean;
+}
+
+interface RawPullRequestDetails {
+  number: number;
+  title: string;
+  body?: string | null;
+  url: string;
+  state?: string | null;
+  baseRefName: string;
+  headRefName: string;
+  mergedAt?: string | null;
+}
+
+interface RawPullRequestCheck {
+  bucket?: string | null;
+  name?: string | null;
+  state?: string | null;
+  link?: string | null;
+  workflow?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  description?: string | null;
+  event?: string | null;
+}
+
+interface RawPullRequestActivityResult<T> {
+  items: T[];
+  error: string | null;
+}
+
+interface RawPullRequestReview {
+  id?: string | null;
+  state?: string | null;
+  body?: string | null;
+  submittedAt?: string | null;
+  authorAssociation?: string | null;
+  author?: { login?: string | null; avatarUrl?: string | null } | null;
+  commit?: { oid?: string | null } | null;
+}
+
+interface RawPullRequestComment {
+  id?: string | null;
+  body?: string | null;
+  createdAt?: string | null;
+  url?: string | null;
+  authorAssociation?: string | null;
+  author?: { login?: string | null; avatarUrl?: string | null } | null;
+}
+
+interface RawPullRequestCommit {
+  commit?: {
+    oid?: string | null;
+    abbreviatedOid?: string | null;
+    messageHeadline?: string | null;
+    messageBody?: string | null;
+    authoredDate?: string | null;
+    committedDate?: string | null;
+    url?: string | null;
+    author?: {
+      name?: string | null;
+      email?: string | null;
+      user?: { login?: string | null; avatarUrl?: string | null } | null;
+    } | null;
+  } | null;
+}
+
+interface RawPullRequestReviewThreadComment {
+  id?: string | null;
+  body?: string | null;
+  path?: string | null;
+  state?: string | null;
+  publishedAt?: string | null;
+  createdAt?: string | null;
+  url?: string | null;
+  diffHunk?: string | null;
+  originalLine?: number | null;
+  originalStartLine?: number | null;
+  line?: number | null;
+  startLine?: number | null;
+  replyTo?: { id?: string | null } | null;
+  pullRequestReview?: { id?: string | null } | null;
+  author?: { login?: string | null; avatarUrl?: string | null } | null;
+}
+
+interface RawPullRequestReviewThread {
+  id?: string | null;
+  isResolved?: boolean | null;
+  isOutdated?: boolean | null;
+  comments?: { nodes?: RawPullRequestReviewThreadComment[] | null } | null;
 }
 
 function parseRepositoryNameFromPullRequestUrl(url: string): string | null {
@@ -141,7 +243,7 @@ function resolvePullRequestWorktreeLocalBranchName(
 
   const sanitizedHeadBranch = sanitizeBranchFragment(pullRequest.headBranch).trim();
   const suffix = sanitizedHeadBranch.length > 0 ? sanitizedHeadBranch : "head";
-  return `t3code/pr-${pullRequest.number}/${suffix}`;
+  return `vfactor/pr-${pullRequest.number}/${suffix}`;
 }
 
 function parseGitHubRepositoryNameWithOwnerFromRemoteUrl(url: string | null): string | null {
@@ -275,6 +377,197 @@ function toPullRequestInfo(summary: GitHubPullRequestSummary): PullRequestInfo {
       ? { headRepositoryOwnerLogin: summary.headRepositoryOwnerLogin }
       : {}),
   };
+}
+
+function normalizePullRequestState(value: string | null | undefined): "open" | "closed" | "merged" {
+  const normalized = value?.toLowerCase();
+  if (normalized === "merged") return "merged";
+  if (normalized === "closed") return "closed";
+  return "open";
+}
+
+function summarizePullRequestChecks(
+  checks: RawPullRequestCheck[],
+): Pick<
+  PullRequestInfo,
+  | "checksStatus"
+  | "failedChecksCount"
+  | "failedCheckNames"
+  | "pendingChecksCount"
+  | "passedChecksCount"
+> {
+  if (checks.length === 0) {
+    return { checksStatus: "none" };
+  }
+
+  let failedChecksCount = 0;
+  let pendingChecksCount = 0;
+  let passedChecksCount = 0;
+  const failedCheckNames = new Set<string>();
+
+  for (const check of checks) {
+    switch (check.bucket) {
+      case "fail":
+      case "cancel":
+        failedChecksCount += 1;
+        if (check.name?.trim()) failedCheckNames.add(check.name.trim());
+        break;
+      case "pending":
+        pendingChecksCount += 1;
+        break;
+      case "pass":
+      case "skipping":
+        passedChecksCount += 1;
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (failedChecksCount > 0) {
+    return {
+      checksStatus: "failed",
+      failedChecksCount,
+      failedCheckNames: Array.from(failedCheckNames),
+      pendingChecksCount,
+      passedChecksCount,
+    };
+  }
+
+  if (pendingChecksCount > 0) {
+    return { checksStatus: "pending", failedChecksCount, pendingChecksCount, passedChecksCount };
+  }
+
+  if (passedChecksCount > 0) {
+    return { checksStatus: "passed", failedChecksCount, pendingChecksCount, passedChecksCount };
+  }
+
+  return { checksStatus: "none" };
+}
+
+function normalizePullRequestCheckStatus(
+  bucket: string | null | undefined,
+): GitPullRequestCheck["status"] {
+  switch (bucket) {
+    case "fail":
+      return "failed";
+    case "cancel":
+      return "cancelled";
+    case "pending":
+      return "pending";
+    case "pass":
+      return "passed";
+    case "skipping":
+      return "skipped";
+    default:
+      return "pending";
+  }
+}
+
+function mapPullRequestCheck(rawCheck: RawPullRequestCheck): GitPullRequestCheck {
+  const status = normalizePullRequestCheckStatus(rawCheck.bucket);
+  const detailsUrl = rawCheck.link?.trim() || null;
+  const normalizedName = rawCheck.name?.trim() || "Unnamed check";
+
+  return {
+    id: `${normalizedName}:${rawCheck.workflow?.trim() || ""}:${detailsUrl || rawCheck.state || ""}`,
+    name: normalizedName,
+    workflowName: rawCheck.workflow?.trim() || null,
+    description: rawCheck.description?.trim() || null,
+    event: rawCheck.event?.trim() || null,
+    status,
+    startedAt: rawCheck.startedAt ?? null,
+    completedAt: rawCheck.completedAt ?? null,
+    detailsUrl,
+    hasFailureDetails: false,
+  };
+}
+
+function normalizePullRequestReviewState(
+  value: string | null | undefined,
+): GitPullRequestReview["state"] {
+  switch ((value ?? "").toUpperCase()) {
+    case "APPROVED":
+      return "APPROVED";
+    case "CHANGES_REQUESTED":
+      return "CHANGES_REQUESTED";
+    case "COMMENTED":
+      return "COMMENTED";
+    case "DISMISSED":
+      return "DISMISSED";
+    case "PENDING":
+      return "PENDING";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+function mapPullRequestReview(rawReview: RawPullRequestReview): GitPullRequestReview {
+  const authorLogin = rawReview.author?.login?.trim() || "unknown";
+  const submittedAt = rawReview.submittedAt ?? null;
+  const commitOid = rawReview.commit?.oid?.trim() || null;
+  const state = normalizePullRequestReviewState(rawReview.state);
+
+  return {
+    id: rawReview.id?.trim() || `${authorLogin}:${submittedAt ?? "unknown"}:${state}`,
+    authorLogin,
+    authorAvatarUrl: rawReview.author?.avatarUrl?.trim() || null,
+    authorAssociation: rawReview.authorAssociation?.trim() || null,
+    body: rawReview.body?.trim() || null,
+    state,
+    submittedAt,
+    commitOid,
+  };
+}
+
+function mapPullRequestComment(rawComment: RawPullRequestComment): GitPullRequestComment {
+  const authorLogin = rawComment.author?.login?.trim() || "unknown";
+  const createdAt = rawComment.createdAt ?? null;
+
+  return {
+    id: rawComment.id?.trim() || `${authorLogin}:${createdAt ?? "unknown"}:${rawComment.url ?? ""}`,
+    authorLogin,
+    authorAvatarUrl: rawComment.author?.avatarUrl?.trim() || null,
+    authorAssociation: rawComment.authorAssociation?.trim() || null,
+    body: rawComment.body?.trim() || null,
+    createdAt,
+    url: rawComment.url?.trim() || null,
+  };
+}
+
+function mapPullRequestCommit(rawCommit: RawPullRequestCommit): GitPullRequestCommit | null {
+  const commit = rawCommit.commit;
+  const oid = commit?.oid?.trim();
+  if (!oid) return null;
+
+  const abbreviatedOid = commit?.abbreviatedOid?.trim() || oid.slice(0, SHORT_SHA_LENGTH);
+  return {
+    oid,
+    abbreviatedOid,
+    messageHeadline: commit?.messageHeadline?.trim() || abbreviatedOid,
+    messageBody: commit?.messageBody?.trim() || null,
+    authoredDate: commit?.authoredDate ?? null,
+    committedDate: commit?.committedDate ?? null,
+    url: commit?.url?.trim() || null,
+    authorName: commit?.author?.name?.trim() || null,
+    authorEmail: commit?.author?.email?.trim() || null,
+    authorLogin: commit?.author?.user?.login?.trim() || null,
+    authorAvatarUrl: commit?.author?.user?.avatarUrl?.trim() || null,
+  };
+}
+
+function parseOwnerAndRepoFromPullRequestUrl(
+  value: string | null | undefined,
+): { owner: string; repo: string } | null {
+  if (!value) return null;
+
+  try {
+    const parsed = new URL(value);
+    const [owner, repo] = parsed.pathname.split("/").filter(Boolean);
+    return owner && repo ? { owner, repo } : null;
+  } catch {
+    return null;
+  }
 }
 
 function gitManagerError(operation: string, detail: string, cause?: unknown): GitManagerError {
@@ -421,18 +714,32 @@ function appendUnique(values: string[], next: string | null | undefined): void {
 function toStatusPr(pr: PullRequestInfo): {
   number: number;
   title: string;
+  description?: string | null;
   url: string;
   baseBranch: string;
   headBranch: string;
   state: "open" | "closed" | "merged";
+  checksStatus?: "none" | "pending" | "passed" | "failed";
+  checksError?: string | null;
+  failedChecksCount?: number;
+  failedCheckNames?: string[];
+  pendingChecksCount?: number;
+  passedChecksCount?: number;
 } {
   return {
     number: pr.number,
     title: pr.title,
+    ...(pr.description !== undefined ? { description: pr.description } : {}),
     url: pr.url,
     baseBranch: pr.baseRefName,
     headBranch: pr.headRefName,
     state: pr.state,
+    ...(pr.checksStatus !== undefined ? { checksStatus: pr.checksStatus } : {}),
+    ...(pr.checksError !== undefined ? { checksError: pr.checksError } : {}),
+    ...(pr.failedChecksCount !== undefined ? { failedChecksCount: pr.failedChecksCount } : {}),
+    ...(pr.failedCheckNames !== undefined ? { failedCheckNames: pr.failedCheckNames } : {}),
+    ...(pr.pendingChecksCount !== undefined ? { pendingChecksCount: pr.pendingChecksCount } : {}),
+    ...(pr.passedChecksCount !== undefined ? { passedChecksCount: pr.passedChecksCount } : {}),
   };
 }
 
@@ -927,6 +1234,277 @@ export const makeGitManager = Effect.fn("makeGitManager")(function* () {
     return parsed[0] ?? null;
   });
 
+  const getPullRequestDetails = Effect.fn("getPullRequestDetails")(function* (
+    cwd: string,
+    pullRequestNumber: number,
+  ) {
+    const result = yield* gitHubCli.execute({
+      cwd,
+      args: [
+        "pr",
+        "view",
+        String(pullRequestNumber),
+        "--json",
+        "number,title,body,url,baseRefName,headRefName,state,mergedAt",
+      ],
+    });
+    const raw = JSON.parse(result.stdout.trim()) as RawPullRequestDetails;
+    return {
+      number: raw.number,
+      title: raw.title,
+      url: raw.url,
+      baseRefName: raw.baseRefName,
+      headRefName: raw.headRefName,
+      state: normalizePullRequestState(raw.mergedAt ? "merged" : raw.state),
+      updatedAt: null,
+      description: raw.body?.trim() || null,
+    } satisfies PullRequestInfo;
+  });
+
+  const getRawPullRequestChecks = Effect.fn("getRawPullRequestChecks")(function* (
+    cwd: string,
+    pullRequestNumber: number,
+  ) {
+    const result = yield* gitHubCli.execute({
+      cwd,
+      allowNonZeroExit: true,
+      args: [
+        "pr",
+        "checks",
+        String(pullRequestNumber),
+        "--json",
+        "bucket,completedAt,description,event,link,name,startedAt,state,workflow",
+      ],
+    });
+    const output = result.stdout.trim();
+    if (output.length === 0) {
+      return { checks: [], error: null };
+    }
+
+    const parsed = yield* Effect.try({
+      try: () => JSON.parse(output) as RawPullRequestCheck[],
+      catch: (error) =>
+        error instanceof Error ? error.message : "Unable to parse pull request checks.",
+    }).pipe(
+      Effect.match({
+        onFailure: (error) => ({ checks: [], error }),
+        onSuccess: (checks) => ({ checks, error: null }),
+      }),
+    );
+    return parsed;
+  });
+
+  const queryPullRequestActivity = Effect.fn("queryPullRequestActivity")(function* <T>(
+    cwd: string,
+    pullRequest: PullRequestInfo,
+    query: string,
+    select: (raw: unknown) => T[],
+    fallbackError: string,
+  ) {
+    const repository = parseOwnerAndRepoFromPullRequestUrl(pullRequest.url);
+    if (!repository) {
+      return {
+        items: [],
+        error: "Unable to determine repository owner/name for pull request.",
+      } satisfies RawPullRequestActivityResult<T>;
+    }
+
+    const result = yield* gitHubCli
+      .execute({
+        cwd,
+        args: [
+          "api",
+          "graphql",
+          "-f",
+          `query=${query}`,
+          "-F",
+          `owner=${repository.owner}`,
+          "-F",
+          `repo=${repository.repo}`,
+          "-F",
+          `number=${pullRequest.number}`,
+        ],
+      })
+      .pipe(
+        Effect.catch((error) =>
+          Effect.succeed({
+            stdout: "",
+            stderr: error.message,
+            code: 1,
+            signal: null,
+            timedOut: false,
+          }),
+        ),
+      );
+
+    if (result.code !== 0) {
+      return {
+        items: [],
+        error: result.stderr.trim() || fallbackError,
+      } satisfies RawPullRequestActivityResult<T>;
+    }
+    if (!result.stdout.trim()) {
+      return { items: [], error: null } satisfies RawPullRequestActivityResult<T>;
+    }
+
+    return {
+      items: select(JSON.parse(result.stdout)),
+      error: null,
+    } satisfies RawPullRequestActivityResult<T>;
+  });
+
+  const getPullRequestChecks: GitManagerShape["getPullRequestChecks"] = Effect.fn(
+    "getPullRequestChecks",
+  )(function* (input) {
+    const cwd = normalizeStatusCacheKey(input.cwd);
+    const includeActivity = input.includeActivity !== false;
+    const details = yield* gitCore
+      .statusDetails(cwd)
+      .pipe(Effect.catchIf(isNotGitRepositoryError, () => Effect.succeed(null)));
+    const latest =
+      details?.branch && details.isRepo
+        ? yield* findLatestPr(cwd, {
+            branch: details.branch,
+            upstreamRef: details.upstreamRef,
+          }).pipe(Effect.catch(() => Effect.succeed(null)))
+        : null;
+
+    if (!latest || latest.state !== "open") {
+      return {
+        pullRequest: null,
+        checks: [],
+        commits: [],
+        reviews: [],
+        comments: [],
+        reviewComments: [],
+        pullRequestNumber: null,
+        error: null,
+        activityIncluded: includeActivity,
+        activityError: null,
+      } satisfies GitPullRequestChecksResult;
+    }
+
+    const rawChecks = yield* getRawPullRequestChecks(cwd, latest.number);
+    const checks = rawChecks.checks.map(mapPullRequestCheck);
+    const pullRequestDetails = yield* getPullRequestDetails(cwd, latest.number).pipe(
+      Effect.catch(() => Effect.succeed(latest)),
+    );
+    const pullRequest = {
+      ...pullRequestDetails,
+      ...summarizePullRequestChecks(rawChecks.checks),
+      checksError: rawChecks.error,
+    } satisfies PullRequestInfo;
+
+    if (!includeActivity || rawChecks.error) {
+      return {
+        pullRequest: toStatusPr(pullRequest),
+        checks,
+        commits: [],
+        reviews: [],
+        comments: [],
+        reviewComments: [],
+        pullRequestNumber: pullRequest.number,
+        error: rawChecks.error,
+        activityIncluded: false,
+        activityError: null,
+      } satisfies GitPullRequestChecksResult;
+    }
+
+    const [rawCommits, rawReviews, rawComments, rawReviewComments] = yield* Effect.all(
+      [
+        queryPullRequestActivity(
+          cwd,
+          pullRequest,
+          "query($owner:String!,$repo:String!,$number:Int!){ repository(owner:$owner,name:$repo){ pullRequest(number:$number){ commits(first:100){ nodes { commit { oid abbreviatedOid messageHeadline messageBody authoredDate committedDate url author { name email user { login avatarUrl } } } } } } } }",
+          (raw) =>
+            ((raw as any).data?.repository?.pullRequest?.commits?.nodes ??
+              []) as RawPullRequestCommit[],
+          "Unable to load pull request commits from GitHub.",
+        ),
+        queryPullRequestActivity(
+          cwd,
+          pullRequest,
+          "query($owner:String!,$repo:String!,$number:Int!){ repository(owner:$owner,name:$repo){ pullRequest(number:$number){ reviews(first:100){ nodes { id state body submittedAt authorAssociation commit { oid } author { login avatarUrl } } } } } }",
+          (raw) =>
+            ((raw as any).data?.repository?.pullRequest?.reviews?.nodes ??
+              []) as RawPullRequestReview[],
+          "Unable to load pull request reviews from GitHub.",
+        ),
+        queryPullRequestActivity(
+          cwd,
+          pullRequest,
+          "query($owner:String!,$repo:String!,$number:Int!){ repository(owner:$owner,name:$repo){ pullRequest(number:$number){ comments(first:100){ nodes { id body createdAt url authorAssociation author { login avatarUrl } } } } } }",
+          (raw) =>
+            ((raw as any).data?.repository?.pullRequest?.comments?.nodes ??
+              []) as RawPullRequestComment[],
+          "Unable to load pull request comments from GitHub.",
+        ),
+        queryPullRequestActivity(
+          cwd,
+          pullRequest,
+          "query($owner:String!,$repo:String!,$number:Int!){ repository(owner:$owner,name:$repo){ pullRequest(number:$number){ reviewThreads(first:100){ nodes { id isResolved isOutdated comments(first:50){ nodes { id body path state publishedAt createdAt url diffHunk originalLine originalStartLine line startLine replyTo { id } pullRequestReview { id } author { login avatarUrl } } } } } } } }",
+          (raw) => {
+            const threads = ((raw as any).data?.repository?.pullRequest?.reviewThreads?.nodes ??
+              []) as RawPullRequestReviewThread[];
+            return threads.flatMap((thread) => {
+              const threadId = thread.id?.trim();
+              if (!threadId) return [];
+              return (thread.comments?.nodes ?? []).map(
+                (comment): GitPullRequestReviewComment => ({
+                  id:
+                    comment.id?.trim() ||
+                    `${threadId}:${comment.author?.login?.trim() || "unknown"}:${comment.createdAt ?? "unknown"}`,
+                  threadId,
+                  pullRequestReviewId: comment.pullRequestReview?.id?.trim() || null,
+                  authorLogin: comment.author?.login?.trim() || "unknown",
+                  authorAvatarUrl: comment.author?.avatarUrl?.trim() || null,
+                  body: comment.body?.trim() || null,
+                  path: comment.path?.trim() || null,
+                  state: comment.state?.trim() || null,
+                  createdAt: comment.createdAt ?? null,
+                  publishedAt: comment.publishedAt ?? null,
+                  url: comment.url?.trim() || null,
+                  diffHunk: comment.diffHunk?.trim() || null,
+                  line: typeof comment.line === "number" ? comment.line : null,
+                  startLine: typeof comment.startLine === "number" ? comment.startLine : null,
+                  originalLine:
+                    typeof comment.originalLine === "number" ? comment.originalLine : null,
+                  originalStartLine:
+                    typeof comment.originalStartLine === "number"
+                      ? comment.originalStartLine
+                      : null,
+                  isResolved: thread.isResolved === true,
+                  isOutdated: thread.isOutdated === true,
+                  replyToId: comment.replyTo?.id?.trim() || null,
+                }),
+              );
+            });
+          },
+          "Unable to load pull request review comments from GitHub.",
+        ),
+      ],
+      { concurrency: "unbounded" },
+    );
+    const activityError =
+      rawCommits.error ?? rawReviews.error ?? rawComments.error ?? rawReviewComments.error;
+
+    return {
+      pullRequest: toStatusPr(pullRequest),
+      checks,
+      commits: rawCommits.items.flatMap((commit) => {
+        const mapped = mapPullRequestCommit(commit);
+        return mapped ? [mapped] : [];
+      }),
+      reviews: rawReviews.items.map(mapPullRequestReview),
+      comments: rawComments.items.map(mapPullRequestComment),
+      reviewComments: rawReviewComments.items,
+      pullRequestNumber: pullRequest.number,
+      error: rawChecks.error,
+      activityIncluded: activityError === null,
+      activityError,
+    } satisfies GitPullRequestChecksResult;
+  });
+
   const buildCompletionToast = Effect.fn("buildCompletionToast")(function* (
     cwd: string,
     result: Pick<GitRunStackedActionResult, "action" | "branch" | "commit" | "push" | "pr">,
@@ -1261,7 +1839,7 @@ export const makeGitManager = Effect.fn("makeGitManager")(function* () {
       modelSelection,
     });
 
-    const bodyFile = path.join(tempDir, `t3code-pr-body-${process.pid}-${randomUUID()}.md`);
+    const bodyFile = path.join(tempDir, `vfactor-pr-body-${process.pid}-${randomUUID()}.md`);
     yield* fileSystem
       .writeFileString(bodyFile, generated.body)
       .pipe(
@@ -1733,6 +2311,7 @@ export const makeGitManager = Effect.fn("makeGitManager")(function* () {
     invalidateStatus,
     resolvePullRequest,
     preparePullRequestThread,
+    getPullRequestChecks,
     runStackedAction,
   } satisfies GitManagerShape;
 });

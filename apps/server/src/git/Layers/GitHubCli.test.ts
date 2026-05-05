@@ -175,6 +175,59 @@ layer("GitHubCliLive", (it) => {
     }),
   );
 
+  it.effect("parses GitHub CLI head repository name output", () =>
+    Effect.gen(function* () {
+      mockedRunProcess.mockResolvedValueOnce({
+        stdout: JSON.stringify([
+          {
+            number: 44,
+            title: "Existing PR",
+            url: "https://github.com/bradleygibsongit/ai-orchestrator-dev/pull/1",
+            baseRefName: "main",
+            headRefName: "docs/pr-smoke-test",
+            state: "OPEN",
+            isCrossRepository: false,
+            headRepository: {
+              id: "R_kgDOSTBJzw",
+              name: "ai-orchestrator-dev",
+            },
+            headRepositoryOwner: {
+              id: "U_kgDOBkHrDg",
+              name: "Bradley Gibson",
+              login: "bradleygibsongit",
+            },
+          },
+        ]),
+        stderr: "",
+        code: 0,
+        signal: null,
+        timedOut: false,
+      });
+
+      const result = yield* Effect.gen(function* () {
+        const gh = yield* GitHubCli;
+        return yield* gh.listOpenPullRequests({
+          cwd: "/repo",
+          headSelector: "docs/pr-smoke-test",
+        });
+      });
+
+      assert.deepStrictEqual(result, [
+        {
+          number: 44,
+          title: "Existing PR",
+          url: "https://github.com/bradleygibsongit/ai-orchestrator-dev/pull/1",
+          baseRefName: "main",
+          headRefName: "docs/pr-smoke-test",
+          state: "open",
+          isCrossRepository: false,
+          headRepositoryNameWithOwner: "bradleygibsongit/ai-orchestrator-dev",
+          headRepositoryOwnerLogin: "bradleygibsongit",
+        },
+      ]);
+    }),
+  );
+
   it.effect("reads repository clone URLs", () =>
     Effect.gen(function* () {
       mockedRunProcess.mockResolvedValueOnce({

@@ -2,8 +2,6 @@ import { type TimelineEntry, type WorkLogEntry } from "../../session-logic";
 import { type ChatMessage, type ProposedPlan, type TurnDiffSummary } from "../../types";
 import { type MessageId } from "@t3tools/contracts";
 
-export const MAX_VISIBLE_WORK_LOG_ENTRIES = 6;
-
 export interface TimelineDurationMessage {
   id: string;
   role: "user" | "assistant" | "system";
@@ -16,7 +14,7 @@ export type MessagesTimelineRow =
       kind: "work";
       id: string;
       createdAt: string;
-      groupedEntries: WorkLogEntry[];
+      entry: WorkLogEntry;
     }
   | {
       kind: "message";
@@ -128,21 +126,12 @@ export function deriveMessagesTimelineRows(input: {
     }
 
     if (timelineEntry.kind === "work") {
-      const groupedEntries = [timelineEntry.entry];
-      let cursor = index + 1;
-      while (cursor < input.timelineEntries.length) {
-        const nextEntry = input.timelineEntries[cursor];
-        if (!nextEntry || nextEntry.kind !== "work") break;
-        groupedEntries.push(nextEntry.entry);
-        cursor += 1;
-      }
       nextRows.push({
         kind: "work",
         id: timelineEntry.id,
         createdAt: timelineEntry.createdAt,
-        groupedEntries,
+        entry: timelineEntry.entry,
       });
-      index = cursor - 1;
       continue;
     }
 
@@ -223,7 +212,7 @@ function isRowUnchanged(a: MessagesTimelineRow, b: MessagesTimelineRow): boolean
       return a.proposedPlan === (b as typeof a).proposedPlan;
 
     case "work":
-      return a.groupedEntries === (b as typeof a).groupedEntries;
+      return a.entry === (b as typeof a).entry;
 
     case "message": {
       const bm = b as typeof a;

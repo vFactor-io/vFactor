@@ -10,6 +10,8 @@ import {
   GitActionProgressEvent,
   GitPreparePullRequestThreadInput,
   GitPreparePullRequestThreadResult,
+  GitPullRequestChecksInput,
+  GitPullRequestChecksResult,
   GitPullRequestRefInput,
   GitResolvePullRequestResult,
   GitRunStackedActionInput,
@@ -85,6 +87,13 @@ export interface GitManagerShape {
   readonly preparePullRequestThread: (
     input: GitPreparePullRequestThreadInput,
   ) => Effect.Effect<GitPreparePullRequestThreadResult, GitManagerServiceError>;
+
+  /**
+   * Load GitHub checks and pull request activity for the current branch.
+   */
+  readonly getPullRequestChecks: (
+    input: GitPullRequestChecksInput,
+  ) => Effect.Effect<GitPullRequestChecksResult, GitManagerServiceError>;
 
   /**
    * Run a Git action (`commit`, `push`, `create_pr`, `commit_push`, `commit_push_pr`).

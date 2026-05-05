@@ -106,6 +106,7 @@ const makeGitHubCli = Effect.sync(() => {
     Effect.tryPromise({
       try: () =>
         runProcess("gh", input.args, {
+          allowNonZeroExit: input.allowNonZeroExit,
           cwd: input.cwd,
           timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
         }),

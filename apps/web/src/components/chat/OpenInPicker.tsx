@@ -21,6 +21,8 @@ import {
 import { isMacPlatform, isWindowsPlatform } from "~/lib/utils";
 import { readLocalApi } from "~/localApi";
 
+const headerActionIconClassName = "size-[1.05em]";
+
 const resolveOptions = (platform: string, availableEditors: ReadonlyArray<EditorId>) => {
   const baseOptions: ReadonlyArray<{ label: string; Icon: Icon; value: EditorId }> = [
     {
@@ -136,7 +138,9 @@ export const OpenInPicker = memo(function OpenInPicker({
         disabled={!preferredEditor || !openInCwd}
         onClick={() => openInEditor(preferredEditor)}
       >
-        {primaryOption?.Icon && <primaryOption.Icon aria-hidden="true" className="size-3.5" />}
+        {primaryOption?.Icon && (
+          <primaryOption.Icon aria-hidden="true" className={headerActionIconClassName} />
+        )}
         <span className="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5">
           Open
         </span>
@@ -144,7 +148,7 @@ export const OpenInPicker = memo(function OpenInPicker({
       <GroupSeparator className="hidden @3xl/header-actions:block" />
       <Menu>
         <MenuTrigger render={<Button aria-label="Copy options" size="icon-xs" variant="outline" />}>
-          <ChevronDownIcon aria-hidden="true" className="size-4" />
+          <ChevronDownIcon aria-hidden="true" className={headerActionIconClassName} />
         </MenuTrigger>
         <MenuPopup align="end">
           {options.length === 0 && <MenuItem disabled>No installed editors found</MenuItem>}

@@ -9,7 +9,7 @@ import { scopeThreadRef } from "@t3tools/client-runtime";
 import { memo } from "react";
 import GitActionsControl from "../GitActionsControl";
 import { type DraftId } from "~/composerDraftStore";
-import { DiffIcon, TerminalSquareIcon } from "lucide-react";
+import { PanelRightIcon, TerminalSquareIcon } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
@@ -17,6 +17,8 @@ import { Toggle } from "../ui/toggle";
 import { SidebarTrigger } from "../ui/sidebar";
 import { OpenInPicker } from "./OpenInPicker";
 import { usePrimaryEnvironmentId } from "../../environments/primary";
+
+const headerIconClassName = "size-[1.05em]";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -36,6 +38,7 @@ interface ChatHeaderProps {
   diffToggleShortcutLabel: string | null;
   gitCwd: string | null;
   diffOpen: boolean;
+  rightSidebarAvailable: boolean;
   onRunProjectScript: (script: ProjectScript) => void;
   onAddProjectScript: (input: NewProjectScriptInput) => Promise<void>;
   onUpdateProjectScript: (scriptId: string, input: NewProjectScriptInput) => Promise<void>;
@@ -62,6 +65,7 @@ export const ChatHeader = memo(function ChatHeader({
   diffToggleShortcutLabel,
   gitCwd,
   diffOpen,
+  rightSidebarAvailable,
   onRunProjectScript,
   onAddProjectScript,
   onUpdateProjectScript,
@@ -72,11 +76,37 @@ export const ChatHeader = memo(function ChatHeader({
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const isRemoteEnvironment =
     primaryEnvironmentId !== null && activeThreadEnvironmentId !== primaryEnvironmentId;
+  const rightSidebarDisabled = !rightSidebarAvailable && !diffOpen;
+  const rightSidebarTooltip = !rightSidebarDisabled
+    ? diffToggleShortcutLabel
+      ? `Toggle right sidebar (${diffToggleShortcutLabel})`
+      : "Toggle right sidebar"
+    : !isGitRepo
+      ? "This project is not a Git repository, so there are no changes or checks to show here."
+      : "Send your first message to start this thread. After it starts, you can open Changes and Checks here.";
+  const rightSidebarToggle = (
+    <Toggle
+      className="shrink-0"
+      pressed={diffOpen}
+      onPressedChange={onToggleDiff}
+      aria-label="Toggle right sidebar"
+      variant="outline"
+      size="xs"
+      disabled={rightSidebarDisabled}
+    >
+      <PanelRightIcon className={headerIconClassName} />
+    </Toggle>
+  );
+  const rightSidebarTrigger = rightSidebarDisabled ? (
+    <span className="inline-flex shrink-0 cursor-not-allowed">{rightSidebarToggle}</span>
+  ) : (
+    rightSidebarToggle
+  );
 
   return (
     <div className="@container/header-actions flex min-w-0 flex-1 items-center gap-2">
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
-        <SidebarTrigger className="size-7 shrink-0 md:hidden" />
+        <SidebarTrigger className="size-7 shrink-0" />
         <h2
           className="min-w-0 shrink truncate text-sm font-medium text-foreground"
           title={activeThreadTitle}
@@ -89,7 +119,7 @@ export const ChatHeader = memo(function ChatHeader({
           </Badge>
         )}
         {activeProjectName && !isGitRepo && (
-          <Badge variant="outline" className="shrink-0 text-[10px] text-amber-700">
+          <Badge variant="outline" className="shrink-0 text-xs text-amber-700">
             No Git
           </Badge>
         )}
@@ -132,7 +162,7 @@ export const ChatHeader = memo(function ChatHeader({
                 size="xs"
                 disabled={!terminalAvailable}
               >
-                <TerminalSquareIcon className="size-3" />
+                <TerminalSquareIcon className={headerIconClassName} />
               </Toggle>
             }
           />
@@ -145,27 +175,9 @@ export const ChatHeader = memo(function ChatHeader({
           </TooltipPopup>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger
-            render={
-              <Toggle
-                className="shrink-0"
-                pressed={diffOpen}
-                onPressedChange={onToggleDiff}
-                aria-label="Toggle diff panel"
-                variant="outline"
-                size="xs"
-                disabled={!isGitRepo && !diffOpen}
-              >
-                <DiffIcon className="size-3" />
-              </Toggle>
-            }
-          />
-          <TooltipPopup side="bottom">
-            {!isGitRepo && !diffOpen
-              ? "Diff panel is unavailable because this project is not a git repository."
-              : diffToggleShortcutLabel
-                ? `Toggle diff panel (${diffToggleShortcutLabel})`
-                : "Toggle diff panel"}
+          <TooltipTrigger render={rightSidebarTrigger} />
+          <TooltipPopup side="bottom" className="max-w-64">
+            {rightSidebarTooltip}
           </TooltipPopup>
         </Tooltip>
       </div>

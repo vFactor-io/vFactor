@@ -1,12 +1,17 @@
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import type { EnvironmentId, RuntimeMode, ThreadId } from "@t3tools/contracts";
 import {
+  CheckIcon,
   ChevronDownIcon,
   CloudIcon,
   FolderGit2Icon,
   FolderGitIcon,
   FolderIcon,
+  InfoIcon,
+  LockIcon,
+  LockOpenIcon,
   MonitorIcon,
+  PenLineIcon,
 } from "lucide-react";
 import { memo, useMemo } from "react";
 
@@ -37,6 +42,8 @@ import {
   MenuTrigger,
 } from "./ui/menu";
 import { Separator } from "./ui/separator";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "./ui/select";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 interface BranchToolbarProps {
   environmentId: EnvironmentId;
@@ -47,11 +54,98 @@ interface BranchToolbarProps {
   activeThreadBranchOverride?: string | null;
   onActiveThreadBranchOverrideChange?: (branch: string | null) => void;
   envLocked: boolean;
+  runtimeMode: RuntimeMode;
+  onRuntimeModeChange: (mode: RuntimeMode) => void;
   onCheckoutPullRequestRequest?: (reference: string) => void;
   onComposerFocusRequest?: () => void;
   availableEnvironments?: readonly EnvironmentOption[];
   onEnvironmentChange?: (environmentId: EnvironmentId) => void;
 }
+
+const runtimeModeConfig: Record<
+  RuntimeMode,
+  { label: string; description: string; icon: typeof LockIcon }
+> = {
+  "approval-required": {
+    label: "Supervised",
+    description: "Ask before commands and file changes.",
+    icon: LockIcon,
+  },
+  "auto-accept-edits": {
+    label: "Auto-accept edits",
+    description: "Auto-approve edits, ask before other actions.",
+    icon: PenLineIcon,
+  },
+  "full-access": {
+    label: "Full access",
+    description: "Allow commands and edits without prompts.",
+    icon: LockOpenIcon,
+  },
+};
+
+const runtimeModeOptions = Object.keys(runtimeModeConfig) as RuntimeMode[];
+
+const RuntimeModePicker = memo(function RuntimeModePicker({
+  runtimeMode,
+  onRuntimeModeChange,
+}: {
+  runtimeMode: RuntimeMode;
+  onRuntimeModeChange: (mode: RuntimeMode) => void;
+}) {
+  const runtimeModeOption = runtimeModeConfig[runtimeMode];
+  const RuntimeModeIcon = runtimeModeOption.icon;
+
+  return (
+    <Select value={runtimeMode} onValueChange={(value) => onRuntimeModeChange(value!)}>
+      <SelectTrigger
+        variant="ghost"
+        size="xs"
+        className="h-6 max-w-36 gap-1.5 rounded-md px-1.5 text-sm font-medium text-muted-foreground/70 hover:bg-transparent hover:text-foreground/85 data-[popup-open]:bg-transparent data-[popup-open]:text-foreground/85 sm:max-w-none"
+        aria-label="Runtime mode"
+        title={runtimeModeOption.description}
+      >
+        <RuntimeModeIcon className="size-3.5 shrink-0" />
+        <SelectValue>{runtimeModeOption.label}</SelectValue>
+      </SelectTrigger>
+      <SelectPopup align="end" alignItemWithTrigger={false} className="w-56">
+        {runtimeModeOptions.map((mode) => {
+          const option = runtimeModeConfig[mode];
+          const OptionIcon = option.icon;
+          return (
+            <SelectItem key={mode} value={mode} hideIndicator className="w-full !pe-4 !ps-2">
+              <span className="grid w-full min-w-0 grid-cols-[1rem_minmax(0,1fr)_1rem] items-center gap-2">
+                <span className="flex items-center justify-center">
+                  {mode === runtimeMode ? <CheckIcon className="size-4" /> : null}
+                </span>
+                <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
+                  <OptionIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{option.label}</span>
+                </span>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span
+                        className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground/65 transition-colors data-[popup-open]:text-foreground"
+                        aria-label={`${option.label} details`}
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                      />
+                    }
+                  >
+                    <InfoIcon className="size-3.5" />
+                  </TooltipTrigger>
+                  <TooltipPopup side="left" align="center" className="max-w-56">
+                    {option.description}
+                  </TooltipPopup>
+                </Tooltip>
+              </span>
+            </SelectItem>
+          );
+        })}
+      </SelectPopup>
+    </Select>
+  );
+});
 
 interface MobileRunContextSelectorProps {
   envLocked: boolean;
@@ -182,6 +276,8 @@ export const BranchToolbar = memo(function BranchToolbar({
   activeThreadBranchOverride,
   onActiveThreadBranchOverrideChange,
   envLocked,
+  runtimeMode,
+  onRuntimeModeChange,
   onCheckoutPullRequestRequest,
   onComposerFocusRequest,
   availableEnvironments,
@@ -225,7 +321,7 @@ export const BranchToolbar = memo(function BranchToolbar({
   if (!hasActiveThread || !activeProject) return null;
 
   return (
-    <div className="mx-auto flex w-full max-w-208 items-center gap-2 px-2.5 pb-3 pt-1 sm:px-3">
+    <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-2.5 pb-3 pt-1 sm:px-3">
       {isMobile ? (
         <MobileRunContextSelector
           envLocked={envLocked}
@@ -260,18 +356,21 @@ export const BranchToolbar = memo(function BranchToolbar({
         </div>
       )}
 
-      <BranchToolbarBranchSelector
-        className="min-w-0 flex-1 justify-end md:ml-auto md:flex-none"
-        environmentId={environmentId}
-        threadId={threadId}
-        {...(draftId ? { draftId } : {})}
-        envLocked={envLocked}
-        {...(effectiveEnvModeOverride ? { effectiveEnvModeOverride } : {})}
-        {...(activeThreadBranchOverride !== undefined ? { activeThreadBranchOverride } : {})}
-        {...(onActiveThreadBranchOverrideChange ? { onActiveThreadBranchOverrideChange } : {})}
-        {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
-        {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
-      />
+      <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1 md:flex-none">
+        <RuntimeModePicker runtimeMode={runtimeMode} onRuntimeModeChange={onRuntimeModeChange} />
+        <BranchToolbarBranchSelector
+          className="min-w-0 flex-1 justify-end md:flex-none"
+          environmentId={environmentId}
+          threadId={threadId}
+          {...(draftId ? { draftId } : {})}
+          envLocked={envLocked}
+          {...(effectiveEnvModeOverride ? { effectiveEnvModeOverride } : {})}
+          {...(activeThreadBranchOverride !== undefined ? { activeThreadBranchOverride } : {})}
+          {...(onActiveThreadBranchOverrideChange ? { onActiveThreadBranchOverrideChange } : {})}
+          {...(onCheckoutPullRequestRequest ? { onCheckoutPullRequestRequest } : {})}
+          {...(onComposerFocusRequest ? { onComposerFocusRequest } : {})}
+        />
+      </div>
     </div>
   );
 });

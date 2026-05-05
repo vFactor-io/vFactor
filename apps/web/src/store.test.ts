@@ -25,6 +25,7 @@ import {
   type AppState,
   type EnvironmentState,
 } from "./store";
+import { createThreadSelectorByRef } from "./storeSelectors";
 import { DEFAULT_INTERACTION_MODE, DEFAULT_RUNTIME_MODE, type Thread } from "./types";
 
 const localEnvironmentId = EnvironmentId.make("environment-local");
@@ -247,6 +248,32 @@ function makeEvent<T extends OrchestrationEvent["type"]>(
 }
 
 describe("thread selection memoization", () => {
+  it("selects a thread by scoped environment when raw thread ids collide", () => {
+    const sharedThreadId = ThreadId.make("thread-shared");
+    const localThread = makeThread({
+      id: sharedThreadId,
+      environmentId: localEnvironmentId,
+      title: "Local thread",
+    });
+    const remoteThread = makeThread({
+      id: sharedThreadId,
+      environmentId: remoteEnvironmentId,
+      title: "Remote thread",
+    });
+    const state = makeEmptyState({
+      environmentStateById: {
+        [localEnvironmentId]: environmentStateOf(makeState(localThread), localEnvironmentId),
+        [remoteEnvironmentId]: environmentStateOf(makeState(remoteThread), remoteEnvironmentId),
+      },
+    });
+
+    const selectRemoteThread = createThreadSelectorByRef(
+      scopeThreadRef(remoteEnvironmentId, sharedThreadId),
+    );
+
+    expect(selectRemoteThread(state)?.title).toBe("Remote thread");
+  });
+
   it("returns stable thread references for repeated reads of the same state", () => {
     const thread = makeThread({
       messages: [

@@ -67,7 +67,12 @@ beforeAll(() => {
   vi.stubGlobal("document", {
     documentElement: {
       classList,
+      dataset: {},
       offsetHeight: 0,
+      style: {
+        colorScheme: "",
+        setProperty: () => {},
+      },
     },
   });
 });
@@ -95,6 +100,8 @@ function buildProps() {
     resolvedTheme: "light" as const,
     timestampFormat: "locale" as const,
     workspaceRoot: undefined,
+    activeProjectName: "ai-orchestrator-dev",
+    activeProjectCwd: "/tmp/ai-orchestrator-dev",
     onIsAtEndChange: () => {},
   };
 }
@@ -135,7 +142,7 @@ describe("MessagesTimeline", () => {
     expect(markup).toContain("yoo what&#x27;s ");
   }, 20_000);
 
-  it("renders context compaction entries in the normal work log", async () => {
+  it("renders context compaction entries as inline activity rows", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const markup = renderToStaticMarkup(
       <MessagesTimeline
@@ -157,7 +164,8 @@ describe("MessagesTimeline", () => {
     );
 
     expect(markup).toContain("Context compacted");
-    expect(markup).toContain("Work log");
+    expect(markup).not.toContain("Work log");
+    expect(markup).not.toContain("Tool calls");
   });
 
   it("formats changed file paths from the workspace root", async () => {
@@ -175,15 +183,15 @@ describe("MessagesTimeline", () => {
               createdAt: "2026-03-17T19:12:28.000Z",
               label: "Updated files",
               tone: "tool",
-              changedFiles: ["C:/Users/mike/dev-stuff/t3code/apps/web/src/session-logic.ts"],
+              changedFiles: ["C:/Users/mike/dev-stuff/vfactor/apps/web/src/session-logic.ts"],
             },
           },
         ]}
-        workspaceRoot="C:/Users/mike/dev-stuff/t3code"
+        workspaceRoot="C:/Users/mike/dev-stuff/vfactor"
       />,
     );
 
-    expect(markup).toContain("t3code/apps/web/src/session-logic.ts");
-    expect(markup).not.toContain("C:/Users/mike/dev-stuff/t3code/apps/web/src/session-logic.ts");
+    expect(markup).toContain("apps/web/src/session-logic.ts");
+    expect(markup).not.toContain("C:/Users/mike/dev-stuff/vfactor/apps/web/src/session-logic.ts");
   });
 });

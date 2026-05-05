@@ -1,11 +1,11 @@
-# T3 Code
+# vFactor
 
-T3 Code is a minimal web GUI for coding agents (currently Codex and Claude, more coming soon).
+vFactor is a minimal web GUI for coding agents (currently Codex and Claude, more coming soon).
 
 ## Installation
 
 > [!WARNING]
-> T3 Code currently supports Codex, Claude, and OpenCode.
+> vFactor currently supports Codex, Claude, and OpenCode.
 > Install and authenticate at least one provider before use:
 >
 > - Codex: install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`
@@ -20,12 +20,12 @@ npx t3
 
 ### Desktop app
 
-Install the latest version of the desktop app from [GitHub Releases](https://github.com/pingdotgg/t3code/releases), or from your favorite package registry:
+Install the latest version of the desktop app from [GitHub Releases](https://github.com/vFactor-io/vfactor-desktop/releases), or from your favorite package registry:
 
 #### Windows (`winget`)
 
 ```bash
-winget install T3Tools.T3Code
+winget install vFactor.vFactor
 ```
 
 #### macOS (Homebrew)
@@ -37,7 +37,7 @@ brew install --cask t3-code
 #### Arch Linux (AUR)
 
 ```bash
-yay -S t3code-bin
+yay -S vfactor-bin
 ```
 
 ## Some notes

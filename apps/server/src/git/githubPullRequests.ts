@@ -28,7 +28,8 @@ const GitHubPullRequestSchema = Schema.Struct({
   headRepository: Schema.optional(
     Schema.NullOr(
       Schema.Struct({
-        nameWithOwner: Schema.String,
+        nameWithOwner: Schema.optional(Schema.String),
+        name: Schema.optional(Schema.String),
       }),
     ),
   ),
@@ -72,6 +73,12 @@ function normalizeGitHubPullRequestRecord(
     (typeof headRepositoryNameWithOwner === "string" && headRepositoryNameWithOwner.includes("/")
       ? (headRepositoryNameWithOwner.split("/")[0] ?? null)
       : null);
+  const headRepositoryName = trimOptionalString(raw.headRepository?.name);
+  const inferredRepositoryNameWithOwner =
+    headRepositoryNameWithOwner ??
+    (headRepositoryOwnerLogin && headRepositoryName
+      ? `${headRepositoryOwnerLogin}/${headRepositoryName}`
+      : null);
 
   return {
     number: raw.number,
@@ -85,7 +92,9 @@ function normalizeGitHubPullRequestRecord(
     ...(typeof raw.isCrossRepository === "boolean"
       ? { isCrossRepository: raw.isCrossRepository }
       : {}),
-    ...(headRepositoryNameWithOwner ? { headRepositoryNameWithOwner } : {}),
+    ...(inferredRepositoryNameWithOwner
+      ? { headRepositoryNameWithOwner: inferredRepositoryNameWithOwner }
+      : {}),
     ...(headRepositoryOwnerLogin ? { headRepositoryOwnerLogin } : {}),
   };
 }

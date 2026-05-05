@@ -74,7 +74,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
       const tempFileId = yield* Random.nextUUIDv4;
       return yield* fileSystem
         .makeTempFileScoped({
-          prefix: `t3code-${prefix}-${process.pid}-${tempFileId}.tmp`,
+          prefix: `vfactor-${prefix}-${process.pid}-${tempFileId}.tmp`,
         })
         .pipe(Effect.tap((filePath) => fileSystem.writeFileString(filePath, content)));
     }).pipe(

@@ -12,7 +12,7 @@ function getDiffPanelHeaderRowClassName(mode: DiffPanelMode) {
   return cn(
     "flex items-center justify-between gap-2 px-4",
     shouldUseDragRegion
-      ? "drag-region h-[52px] border-b border-border wco:h-[env(titlebar-area-height)] wco:pr-[calc(100vw-env(titlebar-area-width)-env(titlebar-area-x)+1em)]"
+      ? "drag-region h-[52px] border-b border-sidebar-border/70 wco:h-[env(titlebar-area-height)] wco:pr-[calc(100vw-env(titlebar-area-width)-env(titlebar-area-x)+1em)]"
       : "h-12 wco:max-h-[env(titlebar-area-height)]",
   );
 }
@@ -29,14 +29,14 @@ export function DiffPanelShell(props: {
       className={cn(
         "flex h-full min-w-0 flex-col bg-background",
         props.mode === "inline"
-          ? "w-[42vw] min-w-[360px] max-w-[560px] shrink-0 border-l border-border"
+          ? "w-[42vw] min-w-[360px] max-w-[560px] shrink-0 border-l border-sidebar-border/70"
           : "w-full",
       )}
     >
       {shouldUseDragRegion ? (
         <div className={getDiffPanelHeaderRowClassName(props.mode)}>{props.header}</div>
       ) : (
-        <div className="border-b border-border">
+        <div className="border-b border-sidebar-border/70">
           <div className={getDiffPanelHeaderRowClassName(props.mode)}>{props.header}</div>
         </div>
       )}
@@ -74,7 +74,7 @@ export function DiffPanelLoadingState(props: { label: string }) {
         aria-live="polite"
         aria-label={props.label}
       >
-        <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
+        <div className="flex items-center gap-2 border-b border-sidebar-border/55 px-3 py-2">
           <Skeleton className="h-4 w-32 rounded-full" />
           <Skeleton className="ml-auto h-4 w-20 rounded-full" />
         </div>

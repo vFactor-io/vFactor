@@ -24,6 +24,8 @@ import {
   GitManagerServiceError,
   GitPreparePullRequestThreadInput,
   GitPreparePullRequestThreadResult,
+  GitPullRequestChecksInput,
+  GitPullRequestChecksResult,
   GitPullInput,
   GitPullRequestRefInput,
   GitPullResult,
@@ -104,6 +106,7 @@ export const WS_METHODS = {
   gitInit: "git.init",
   gitResolvePullRequest: "git.resolvePullRequest",
   gitPreparePullRequestThread: "git.preparePullRequestThread",
+  gitGetPullRequestChecks: "git.getPullRequestChecks",
 
   // Terminal methods
   terminalOpen: "terminal.open",
@@ -223,6 +226,12 @@ export const WsGitResolvePullRequestRpc = Rpc.make(WS_METHODS.gitResolvePullRequ
 export const WsGitPreparePullRequestThreadRpc = Rpc.make(WS_METHODS.gitPreparePullRequestThread, {
   payload: GitPreparePullRequestThreadInput,
   success: GitPreparePullRequestThreadResult,
+  error: GitManagerServiceError,
+});
+
+export const WsGitGetPullRequestChecksRpc = Rpc.make(WS_METHODS.gitGetPullRequestChecks, {
+  payload: GitPullRequestChecksInput,
+  success: GitPullRequestChecksResult,
   error: GitManagerServiceError,
 });
 
@@ -380,6 +389,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsGitRunStackedActionRpc,
   WsGitResolvePullRequestRpc,
   WsGitPreparePullRequestThreadRpc,
+  WsGitGetPullRequestChecksRpc,
   WsGitListBranchesRpc,
   WsGitCreateWorktreeRpc,
   WsGitRemoveWorktreeRpc,
