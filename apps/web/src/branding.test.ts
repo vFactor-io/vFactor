@@ -21,8 +21,8 @@ describe("branding", () => {
         desktopBridge: {
           getAppBranding: () => ({
             baseName: "vFactor",
-            stageLabel: "Nightly",
-            displayName: "vFactor (Nightly)",
+            stageLabel: "Alpha",
+            displayName: "vFactor (Alpha)",
           }),
         },
       },
@@ -31,7 +31,7 @@ describe("branding", () => {
     const branding = await import("./branding");
 
     expect(branding.APP_BASE_NAME).toBe("vFactor");
-    expect(branding.APP_STAGE_LABEL).toBe("Nightly");
-    expect(branding.APP_DISPLAY_NAME).toBe("vFactor (Nightly)");
+    expect(branding.APP_STAGE_LABEL).toBe("Alpha");
+    expect(branding.APP_DISPLAY_NAME).toBe("vFactor (Alpha)");
   });
 });

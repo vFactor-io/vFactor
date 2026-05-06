@@ -7,10 +7,6 @@ export const BRAND_ASSET_PATHS = {
   productionWebFavicon32Png: "assets/vfactor/favicon-32x32.png",
   productionWebAppleTouchIconPng: "assets/vfactor/apple-touch-icon.png",
 
-  nightlyMacIconPng: "assets/vfactor/app-icon-1024.png",
-  nightlyLinuxIconPng: "assets/vfactor/app-icon-1024.png",
-  nightlyWindowsIconIco: "assets/vfactor/icon.ico",
-
   developmentDesktopIconPng: "assets/vfactor/dev/icon.png",
   developmentDockIconPng: "assets/vfactor/dev/dock.png",
   developmentMacIconIcns: "assets/vfactor/dev/icon.icns",

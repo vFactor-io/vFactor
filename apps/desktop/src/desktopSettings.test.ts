@@ -32,10 +32,10 @@ describe("desktopSettings", () => {
     expect(readDesktopSettings(makeSettingsPath(), "0.0.17")).toEqual(DEFAULT_DESKTOP_SETTINGS);
   });
 
-  it("defaults packaged nightly builds to the nightly update channel", () => {
-    expect(resolveDefaultDesktopSettings("0.0.17-nightly.20260415.1")).toEqual({
+  it("defaults prerelease builds to the latest update channel", () => {
+    expect(resolveDefaultDesktopSettings("0.0.17-beta.1")).toEqual({
       serverExposureMode: "local-only",
-      updateChannel: "nightly",
+      updateChannel: "latest",
       updateChannelConfiguredByUser: false,
     });
   });
@@ -73,7 +73,7 @@ describe("desktopSettings", () => {
     });
   });
 
-  it("persists the requested nightly update channel", () => {
+  it("persists the requested update channel metadata", () => {
     expect(
       setDesktopUpdateChannelPreference(
         {
@@ -81,11 +81,11 @@ describe("desktopSettings", () => {
           updateChannel: "latest",
           updateChannelConfiguredByUser: false,
         },
-        "nightly",
+        "latest",
       ),
     ).toEqual({
       serverExposureMode: "local-only",
-      updateChannel: "nightly",
+      updateChannel: "latest",
       updateChannelConfiguredByUser: true,
     });
   });
@@ -97,36 +97,36 @@ describe("desktopSettings", () => {
     expect(readDesktopSettings(settingsPath, "0.0.17")).toEqual(DEFAULT_DESKTOP_SETTINGS);
   });
 
-  it("falls back to the nightly channel for legacy nightly settings without an update track", () => {
+  it("keeps legacy settings on the latest channel", () => {
     const settingsPath = makeSettingsPath();
     fs.writeFileSync(settingsPath, JSON.stringify({ serverExposureMode: "local-only" }), "utf8");
 
-    expect(readDesktopSettings(settingsPath, "0.0.17-nightly.20260415.1")).toEqual({
+    expect(readDesktopSettings(settingsPath, "0.0.17-beta.1")).toEqual({
       serverExposureMode: "local-only",
-      updateChannel: "nightly",
+      updateChannel: "latest",
       updateChannelConfiguredByUser: false,
     });
   });
 
-  it("migrates legacy implicit stable settings to nightly when running a nightly build", () => {
+  it("ignores unsupported legacy update channels", () => {
     const settingsPath = makeSettingsPath();
     fs.writeFileSync(
       settingsPath,
       JSON.stringify({
         serverExposureMode: "local-only",
-        updateChannel: "latest",
+        updateChannel: "canary",
       }),
       "utf8",
     );
 
-    expect(readDesktopSettings(settingsPath, "0.0.17-nightly.20260415.1")).toEqual({
+    expect(readDesktopSettings(settingsPath, "0.0.17")).toEqual({
       serverExposureMode: "local-only",
-      updateChannel: "nightly",
+      updateChannel: "latest",
       updateChannelConfiguredByUser: false,
     });
   });
 
-  it("preserves an explicit stable choice on nightly builds", () => {
+  it("preserves explicit update channel metadata", () => {
     const settingsPath = makeSettingsPath();
     fs.writeFileSync(
       settingsPath,
@@ -138,7 +138,7 @@ describe("desktopSettings", () => {
       "utf8",
     );
 
-    expect(readDesktopSettings(settingsPath, "0.0.17-nightly.20260415.1")).toEqual({
+    expect(readDesktopSettings(settingsPath, "0.0.17-beta.1")).toEqual({
       serverExposureMode: "local-only",
       updateChannel: "latest",
       updateChannelConfiguredByUser: true,

@@ -1126,11 +1126,9 @@ function createBaseUpdateState(
 
 function applyAutoUpdaterChannel(channel: DesktopUpdateChannel): void {
   autoUpdater.channel = channel;
-  autoUpdater.allowPrerelease = channel === "nightly";
-  autoUpdater.allowDowngrade = channel === "nightly";
-  console.info(
-    `[desktop-updater] Using update channel '${channel}' (allowPrerelease=${channel === "nightly"}, allowDowngrade=${channel === "nightly"}).`,
-  );
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.allowDowngrade = false;
+  console.info(`[desktop-updater] Using update channel '${channel}'.`);
 }
 
 function shouldEnableAutoUpdates(): boolean {
@@ -1784,7 +1782,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.removeHandler(UPDATE_SET_CHANNEL_CHANNEL);
   ipcMain.handle(UPDATE_SET_CHANNEL_CHANNEL, async (_event, rawChannel: unknown) => {
-    if (rawChannel !== "latest" && rawChannel !== "nightly") {
+    if (rawChannel !== "latest") {
       throw new Error("Invalid desktop update channel input.");
     }
     if (updateCheckInFlight || updateDownloadInFlight || updateInstallInFlight) {
@@ -1808,14 +1806,7 @@ function registerIpcHandlers(): void {
     }
 
     applyAutoUpdaterChannel(nextChannel);
-    const allowDowngrade = autoUpdater.allowDowngrade;
-    // An explicit channel switch should allow the immediate nightly->stable rollback path.
-    autoUpdater.allowDowngrade = true;
-    try {
-      await checkForUpdates("channel-change");
-    } finally {
-      autoUpdater.allowDowngrade = allowDowngrade;
-    }
+    await checkForUpdates("channel-change");
     return updateState;
   });
 

@@ -7,7 +7,6 @@ import {
   DEFAULT_SERVER_SETTINGS,
   EnvironmentId,
   type DesktopBridge,
-  type DesktopUpdateChannel,
   type DesktopUpdateState,
   type LocalApi,
   type ServerConfig,
@@ -316,7 +315,7 @@ const createDesktopBridgeStub = (overrides?: {
     getUpdateState: vi.fn().mockResolvedValue(idleUpdateState),
     setUpdateChannel:
       overrides?.setUpdateChannel ??
-      vi.fn().mockImplementation(async (channel: DesktopUpdateChannel) => ({
+      vi.fn().mockImplementation(async (channel) => ({
         ...idleUpdateState,
         channel,
       })),

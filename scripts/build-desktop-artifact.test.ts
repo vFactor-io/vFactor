@@ -13,27 +13,27 @@ import {
 import { BRAND_ASSET_PATHS } from "./lib/brand-assets.ts";
 
 it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
-  it("resolves the dedicated nightly updater channel from nightly versions", () => {
-    assert.equal(resolveDesktopUpdateChannel("0.0.17-nightly.20260413.42"), "nightly");
+  it("uses the stable updater channel for release versions", () => {
+    assert.equal(resolveDesktopUpdateChannel("0.0.17-beta.1"), "latest");
     assert.equal(resolveDesktopUpdateChannel("0.0.17"), "latest");
   });
 
-  it("switches desktop packaging product names to nightly for nightly builds", () => {
+  it("uses the production desktop packaging product name for release builds", () => {
     assert.equal(resolveDesktopProductName("0.0.17"), "vFactor");
-    assert.equal(resolveDesktopProductName("0.0.17-nightly.20260413.42"), "vFactor (Nightly)");
+    assert.equal(resolveDesktopProductName("0.0.17-beta.1"), "vFactor");
   });
 
-  it("switches desktop packaging icons to the nightly artwork for nightly versions", () => {
+  it("uses production desktop packaging icons for release versions", () => {
     assert.deepStrictEqual(resolveDesktopBuildIconAssets("0.0.17"), {
       macIconPng: BRAND_ASSET_PATHS.productionMacIconPng,
       linuxIconPng: BRAND_ASSET_PATHS.productionLinuxIconPng,
       windowsIconIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
     });
 
-    assert.deepStrictEqual(resolveDesktopBuildIconAssets("0.0.17-nightly.20260413.42"), {
-      macIconPng: BRAND_ASSET_PATHS.nightlyMacIconPng,
-      linuxIconPng: BRAND_ASSET_PATHS.nightlyLinuxIconPng,
-      windowsIconIco: BRAND_ASSET_PATHS.nightlyWindowsIconIco,
+    assert.deepStrictEqual(resolveDesktopBuildIconAssets("0.0.17-beta.1"), {
+      macIconPng: BRAND_ASSET_PATHS.productionMacIconPng,
+      linuxIconPng: BRAND_ASSET_PATHS.productionLinuxIconPng,
+      windowsIconIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
     });
   });
 

@@ -1,7 +1,5 @@
 import type { DesktopAppBranding, DesktopAppStageLabel } from "@t3tools/contracts";
 
-import { isNightlyDesktopVersion } from "./updateChannels.ts";
-
 const APP_BASE_NAME = "vFactor";
 
 export function resolveDesktopAppStageLabel(input: {
@@ -12,7 +10,7 @@ export function resolveDesktopAppStageLabel(input: {
     return "Dev";
   }
 
-  return isNightlyDesktopVersion(input.appVersion) ? "Nightly" : "Alpha";
+  return "Alpha";
 }
 
 export function resolveDesktopAppBranding(input: {
