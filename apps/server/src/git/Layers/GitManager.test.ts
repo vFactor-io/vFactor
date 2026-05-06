@@ -2615,7 +2615,7 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
             headRepositoryOwnerLogin: "binbandit",
           },
           repositoryCloneUrls: {
-            "binbandit/vfactor": {
+            "binbandit/vfactor-desktop": {
               url: forkDir,
               sshUrl: forkDir,
             },
