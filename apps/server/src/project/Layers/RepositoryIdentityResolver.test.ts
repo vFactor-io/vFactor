@@ -46,11 +46,11 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
       const identity = yield* resolver.resolve(cwd);
 
       expect(identity).not.toBeNull();
-      expect(identity?.canonicalKey).toBe("github.com/t3tools/vfactor");
+      expect(identity?.canonicalKey).toBe("github.com/vfactor/vfactor");
       expect(normalizeResolvedPath(identity?.rootPath ?? "")).toBe(normalizeResolvedPath(cwd));
-      expect(identity?.displayName).toBe("t3tools/vfactor");
+      expect(identity?.displayName).toBe("vfactor/vfactor");
       expect(identity?.provider).toBe("github");
-      expect(identity?.owner).toBe("t3tools");
+      expect(identity?.owner).toBe("vfactor");
       expect(identity?.name).toBe("vfactor");
     }).pipe(Effect.provide(RepositoryIdentityResolverLive)),
   );
@@ -71,7 +71,7 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
       const identity = yield* resolver.resolve(nestedWorkspace);
 
       expect(identity).not.toBeNull();
-      expect(identity?.canonicalKey).toBe("github.com/t3tools/vfactor");
+      expect(identity?.canonicalKey).toBe("github.com/vfactor/vfactor");
       expect(normalizeResolvedPath(identity?.rootPath ?? "")).toBe(normalizeResolvedPath(repoRoot));
     }).pipe(Effect.provide(RepositoryIdentityResolverLive)),
   );
@@ -113,8 +113,8 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
 
       expect(identity).not.toBeNull();
       expect(identity?.locator.remoteName).toBe("upstream");
-      expect(identity?.canonicalKey).toBe("github.com/t3tools/vfactor");
-      expect(identity?.displayName).toBe("t3tools/vfactor");
+      expect(identity?.canonicalKey).toBe("github.com/vfactor/vfactor");
+      expect(identity?.displayName).toBe("vfactor/vfactor");
     }).pipe(Effect.provide(RepositoryIdentityResolverLive)),
   );
 
@@ -132,9 +132,9 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
       const identity = yield* resolver.resolve(cwd);
 
       expect(identity).not.toBeNull();
-      expect(identity?.canonicalKey).toBe("gitlab.com/t3tools/platform/vfactor");
-      expect(identity?.displayName).toBe("t3tools/platform/vfactor");
-      expect(identity?.owner).toBe("t3tools");
+      expect(identity?.canonicalKey).toBe("gitlab.com/vfactor/platform/vfactor");
+      expect(identity?.displayName).toBe("vfactor/platform/vfactor");
+      expect(identity?.owner).toBe("vfactor");
       expect(identity?.name).toBe("vfactor");
     }).pipe(Effect.provide(RepositoryIdentityResolverLive)),
   );
@@ -165,7 +165,7 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
 
         const refreshedIdentity = yield* resolver.resolve(cwd);
         expect(refreshedIdentity).not.toBeNull();
-        expect(refreshedIdentity?.canonicalKey).toBe("github.com/t3tools/vfactor");
+        expect(refreshedIdentity?.canonicalKey).toBe("github.com/vfactor/vfactor");
         expect(refreshedIdentity?.name).toBe("vfactor");
       }).pipe(
         Effect.provide(
@@ -193,20 +193,20 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
       const resolver = yield* RepositoryIdentityResolver;
       const initialIdentity = yield* resolver.resolve(cwd);
       expect(initialIdentity).not.toBeNull();
-      expect(initialIdentity?.canonicalKey).toBe("github.com/t3tools/vfactor");
+      expect(initialIdentity?.canonicalKey).toBe("github.com/vfactor/vfactor");
 
       yield* git(cwd, ["remote", "set-url", "origin", "git@github.com:vFactor/vfactor-next.git"]);
 
       const cachedIdentity = yield* resolver.resolve(cwd);
       expect(cachedIdentity).not.toBeNull();
-      expect(cachedIdentity?.canonicalKey).toBe("github.com/t3tools/vfactor");
+      expect(cachedIdentity?.canonicalKey).toBe("github.com/vfactor/vfactor");
 
       yield* TestClock.adjust(Duration.millis(180));
 
       const refreshedIdentity = yield* resolver.resolve(cwd);
       expect(refreshedIdentity).not.toBeNull();
-      expect(refreshedIdentity?.canonicalKey).toBe("github.com/t3tools/vfactor-next");
-      expect(refreshedIdentity?.displayName).toBe("t3tools/vfactor-next");
+      expect(refreshedIdentity?.canonicalKey).toBe("github.com/vfactor/vfactor-next");
+      expect(refreshedIdentity?.displayName).toBe("vfactor/vfactor-next");
       expect(refreshedIdentity?.name).toBe("vfactor-next");
     }).pipe(
       Effect.provide(
