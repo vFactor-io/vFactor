@@ -24,7 +24,7 @@ import { createModelCapabilities, createModelSelection } from "@t3tools/shared/m
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { HttpResponse, http, ws } from "msw";
 import { setupWorker } from "msw/browser";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
@@ -164,7 +164,7 @@ function createBaseServerConfig(): ServerConfig {
       sessionCookieName: "t3_session",
     },
     cwd: "/repo/project",
-    keybindingsConfigPath: "/repo/project/.t3code-keybindings.json",
+    keybindingsConfigPath: "/repo/project/.vfactor-keybindings.json",
     keybindings: [],
     issues: [],
     providers: [
@@ -184,7 +184,7 @@ function createBaseServerConfig(): ServerConfig {
     ],
     availableEditors: [],
     observability: {
-      logsDirectoryPath: "/repo/project/.t3/logs",
+      logsDirectoryPath: "/repo/project/.vfactor/logs",
       localTracingEnabled: true,
       otlpTracesEnabled: false,
       otlpMetricsEnabled: false,
@@ -1321,6 +1321,13 @@ async function waitForSelectItemContainingText(text: string): Promise<HTMLElemen
   );
 }
 
+async function waitForElementByAriaLabel(label: string): Promise<HTMLElement> {
+  return waitForElement(
+    () => document.querySelector<HTMLElement>(`[aria-label="${label}"]`),
+    `Unable to find element labelled "${label}".`,
+  );
+}
+
 async function expectComposerActionsContained(): Promise<void> {
   const footer = await waitForElement(
     () => document.querySelector<HTMLElement>('[data-chat-composer-footer="true"]'),
@@ -1350,15 +1357,25 @@ async function expectComposerActionsContained(): Promise<void> {
   );
 }
 
-async function waitForInteractionModeButton(
-  expectedLabel: "Build" | "Plan",
-): Promise<HTMLButtonElement> {
+async function expectInteractionMode(expectedLabel: "Build" | "Plan"): Promise<void> {
+  await vi.waitFor(
+    () => {
+      const draftInteractionMode = composerDraftFor(THREAD_ID)?.interactionMode ?? "default";
+      expect(draftInteractionMode).toBe(expectedLabel === "Plan" ? "plan" : "default");
+    },
+    { timeout: 8_000, interval: 16 },
+  );
+}
+
+async function waitForPreviousQuestionAction(): Promise<HTMLButtonElement> {
   return waitForElement(
     () =>
-      Array.from(document.querySelectorAll("button")).find(
-        (button) => button.textContent?.trim() === expectedLabel,
-      ) as HTMLButtonElement | null,
-    `Unable to find ${expectedLabel} interaction mode button.`,
+      (Array.from(document.querySelectorAll("button")).find(
+        (button) =>
+          button.textContent?.trim() === "Previous" ||
+          button.getAttribute("aria-label") === "Previous question",
+      ) ?? null) as HTMLButtonElement | null,
+    'Unable to find "Previous" question action.',
   );
 }
 
@@ -1805,10 +1822,10 @@ describe("ChatView timeline estimator parity (full app)", () => {
             cwd: "/repo/project",
             worktreePath: null,
             env: {
-              T3CODE_PROJECT_ROOT: "/repo/project",
+              VFACTOR_PROJECT_ROOT: "/repo/project",
             },
           });
-          expect(openRequest?.env?.T3CODE_WORKTREE_PATH).toBeUndefined();
+          expect(openRequest?.env?.VFACTOR_WORKTREE_PATH).toBeUndefined();
         },
         { timeout: 8_000, interval: 16 },
       );
@@ -2022,7 +2039,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
   });
 
   it("falls back to the first installed editor when the stored favorite is unavailable", async () => {
-    localStorage.setItem("t3code:last-editor", JSON.stringify("vscodium"));
+    localStorage.setItem("vfactor:last-editor", JSON.stringify("vscodium"));
     setDraftThreadWithoutWorktree();
 
     const mounted = await mountChatView({
@@ -2122,7 +2139,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
             threadId: THREAD_ID,
             cwd: "/repo/project",
             env: {
-              T3CODE_PROJECT_ROOT: "/repo/project",
+              VFACTOR_PROJECT_ROOT: "/repo/project",
             },
           });
         },
@@ -2201,8 +2218,8 @@ describe("ChatView timeline estimator parity (full app)", () => {
             threadId: THREAD_ID,
             cwd: "/repo/worktrees/feature-draft",
             env: {
-              T3CODE_PROJECT_ROOT: "/repo/project",
-              T3CODE_WORKTREE_PATH: "/repo/worktrees/feature-draft",
+              VFACTOR_PROJECT_ROOT: "/repo/project",
+              VFACTOR_WORKTREE_PATH: "/repo/worktrees/feature-draft",
             },
           });
         },
@@ -2251,7 +2268,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
             pullRequest: {
               number: 1359,
               title: "Add thread archiving and settings navigation",
-              url: "https://github.com/pingdotgg/t3code/pull/1359",
+              url: "https://github.com/vFactor-io/vfactor-desktop/pull/1359",
               baseBranch: "main",
               headBranch: "archive-settings-overhaul",
               state: "open",
@@ -2263,7 +2280,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
             pullRequest: {
               number: 1359,
               title: "Add thread archiving and settings navigation",
-              url: "https://github.com/pingdotgg/t3code/pull/1359",
+              url: "https://github.com/vFactor-io/vfactor-desktop/pull/1359",
               baseBranch: "main",
               headBranch: "archive-settings-overhaul",
               state: "open",
@@ -2416,7 +2433,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
               prepareWorktree: {
                 projectCwd: "/repo/project",
                 baseBranch: "main",
-                branch: expect.stringMatching(/^t3code\/[0-9a-f]{8}$/),
+                branch: expect.stringMatching(/^vfactor\/[0-9a-f]{8}$/),
               },
               runSetupScript: true,
             },
@@ -2640,7 +2657,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
               prepareWorktree: {
                 projectCwd: "/repo/project",
                 baseBranch: "main",
-                branch: expect.stringMatching(/^t3code\/[0-9a-f]{8}$/),
+                branch: expect.stringMatching(/^vfactor\/[0-9a-f]{8}$/),
               },
               runSetupScript: true,
             },
@@ -2916,7 +2933,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
   it("toggles plan mode with Shift+Tab only while the composer is focused", async () => {
     const mounted = await mountChatView({
-      viewport: DEFAULT_VIEWPORT,
+      viewport: WIDE_FOOTER_VIEWPORT,
       snapshot: createSnapshotForTargetUser({
         targetMessageId: "msg-user-target-hotkey" as MessageId,
         targetText: "hotkey target",
@@ -2924,8 +2941,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
     });
 
     try {
-      const initialModeButton = await waitForInteractionModeButton("Build");
-      expect(initialModeButton.title).toContain("enter plan mode");
+      await expectInteractionMode("Build");
 
       window.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -2937,40 +2953,24 @@ describe("ChatView timeline estimator parity (full app)", () => {
       );
       await waitForLayout();
 
-      expect((await waitForInteractionModeButton("Build")).title).toContain("enter plan mode");
+      await expectInteractionMode("Build");
 
       const composerEditor = await waitForComposerEditor();
-      composerEditor.focus();
-      composerEditor.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "Tab",
-          shiftKey: true,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
+      await userEvent.click(composerEditor);
+      await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
 
       await vi.waitFor(
         async () => {
-          expect((await waitForInteractionModeButton("Plan")).title).toContain(
-            "return to normal build mode",
-          );
+          await expectInteractionMode("Plan");
         },
         { timeout: 8_000, interval: 16 },
       );
 
-      composerEditor.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "Tab",
-          shiftKey: true,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
+      await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
 
       await vi.waitFor(
         async () => {
-          expect((await waitForInteractionModeButton("Build")).title).toContain("enter plan mode");
+          await expectInteractionMode("Build");
         },
         { timeout: 8_000, interval: 16 },
       );
@@ -3403,12 +3403,23 @@ describe("ChatView timeline estimator parity (full app)", () => {
       runtimeModeSelect.click();
 
       expect((await waitForSelectItemContainingText("Supervised")).textContent).toContain(
+        "Supervised",
+      );
+      expect((await waitForElementByAriaLabel("Supervised details")).title).toContain(
         "Ask before commands and file changes",
       );
 
-      const autoAcceptItem = await waitForSelectItemContainingText("Auto-accept edits");
-      expect(autoAcceptItem.textContent).toContain("Auto-approve edits");
+      expect((await waitForSelectItemContainingText("Auto-accept edits")).textContent).toContain(
+        "Auto-accept edits",
+      );
+      expect((await waitForElementByAriaLabel("Auto-accept edits details")).title).toContain(
+        "Auto-approve edits",
+      );
+
       expect((await waitForSelectItemContainingText("Full access")).textContent).toContain(
+        "Full access",
+      );
+      expect((await waitForElementByAriaLabel("Full access details")).title).toContain(
         "Allow commands and edits without prompts",
       );
     } finally {
@@ -3669,7 +3680,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
   it("shows the confirm archive action after clicking the archive button", async () => {
     localStorage.setItem(
-      "t3code:client-settings:v1",
+      "vfactor:client-settings:v1",
       JSON.stringify({
         ...DEFAULT_CLIENT_SETTINGS,
         confirmThreadArchive: true,
@@ -3698,7 +3709,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
       await expect.element(confirmButton).toBeInTheDocument();
       await expect.element(confirmButton).toBeVisible();
     } finally {
-      localStorage.removeItem("t3code:client-settings:v1");
+      localStorage.removeItem("vfactor:client-settings:v1");
       await mounted.cleanup();
     }
   });
@@ -3821,7 +3832,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
           thread.id === THREAD_ID
             ? Object.assign({}, thread, {
                 branch: "feature/existing",
-                worktreePath: "/repo/.t3/worktrees/existing",
+                worktreePath: "/repo/.vfactor/worktrees/existing",
               })
             : thread,
         ),
@@ -5444,8 +5455,8 @@ describe("ChatView timeline estimator parity (full app)", () => {
       const firstOption = await waitForButtonContainingText("Tight");
       firstOption.click();
 
-      await waitForButtonByText("Previous");
-      await waitForButtonByText("Submit answers");
+      await waitForPreviousQuestionAction();
+      await waitForButtonContainingText("Submit");
 
       await mounted.setContainerSize(COMPACT_FOOTER_VIEWPORT);
       await expectComposerActionsContained();
@@ -5570,7 +5581,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
     }
   });
 
-  it("keeps the wide desktop follow-up layout expanded when the footer still fits", async () => {
+  it("keeps the constrained desktop follow-up layout compact when the footer is chat-width limited", async () => {
     const mounted = await mountChatView({
       viewport: WIDE_FOOTER_VIEWPORT,
       snapshot: createSnapshotWithPlanFollowUpPrompt({
@@ -5579,7 +5590,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
           model: "gpt-5.3-codex-spark",
         },
         planMarkdown:
-          "# Imaginary Long-Range Plan: T3 Code Adaptive Orchestration and Safe-Delay Execution Initiative",
+          "# Imaginary Long-Range Plan: vFactor Adaptive Orchestration and Safe-Delay Execution Initiative",
       }),
     });
 
@@ -5593,8 +5604,8 @@ describe("ChatView timeline estimator parity (full app)", () => {
             '[data-chat-composer-actions="right"]',
           );
 
-          expect(footer?.dataset.chatComposerFooterCompact).toBe("false");
-          expect(actions?.dataset.chatComposerPrimaryActionsCompact).toBe("false");
+          expect(footer?.dataset.chatComposerFooterCompact).toBe("true");
+          expect(actions?.dataset.chatComposerPrimaryActionsCompact).toBe("true");
         },
         { timeout: 8_000, interval: 16 },
       );
@@ -5612,7 +5623,7 @@ describe("ChatView timeline estimator parity (full app)", () => {
           model: "gpt-5.3-codex-spark",
         },
         planMarkdown:
-          "# Imaginary Long-Range Plan: T3 Code Adaptive Orchestration and Safe-Delay Execution Initiative",
+          "# Imaginary Long-Range Plan: vFactor Adaptive Orchestration and Safe-Delay Execution Initiative",
       }),
     });
 

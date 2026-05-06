@@ -16,36 +16,38 @@ import { type TurnDiffSummary } from "../../types";
 import { summarizeTurnDiffStats } from "../../lib/turnDiffTree";
 import ChatMarkdown from "../ChatMarkdown";
 import {
-  BotIcon,
+  BrainIcon,
   CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   CircleAlertIcon,
   EyeIcon,
   GlobeIcon,
   HammerIcon,
+  ImageIcon,
   type LucideIcon,
+  SearchIcon,
   SquarePenIcon,
   TerminalIcon,
   Undo2Icon,
   WrenchIcon,
-  ZapIcon,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { LoadingDots } from "../ui/loading-dots";
 import { buildExpandedImagePreview, ExpandedImagePreview } from "./ExpandedImagePreview";
 import { ProposedPlanCard } from "./ProposedPlanCard";
 import { ChangedFilesTree } from "./ChangedFilesTree";
 import { DiffStatLabel, hasNonZeroStat } from "./DiffStatLabel";
 import { MessageCopyButton } from "./MessageCopyButton";
+import { ProjectFavicon } from "../ProjectFavicon";
 import {
   computeStableMessagesTimelineRows,
-  MAX_VISIBLE_WORK_LOG_ENTRIES,
   deriveMessagesTimelineRows,
-  normalizeCompactToolLabel,
   resolveAssistantMessageCopyState,
   type StableMessagesTimelineRowsState,
   type MessagesTimelineRow,
 } from "./MessagesTimeline.logic";
 import { TerminalContextInlineChip } from "./TerminalContextInlineChip";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
   deriveDisplayedUserMessageState,
   type ParsedTerminalContextEntry,
@@ -61,6 +63,11 @@ import {
   textContainsInlineTerminalContextLabels,
 } from "./userMessageTerminalContexts";
 import { formatWorkspaceRelativePath } from "../../filePathDisplay";
+import {
+  getToolActivityPresentation,
+  type ToolActivityIconKind,
+  type ToolActivityPresentation,
+} from "./toolActivityPresentation";
 
 // ---------------------------------------------------------------------------
 // Context — shared state consumed by every row component via useContext.
@@ -113,8 +120,12 @@ interface MessagesTimelineProps {
   resolvedTheme: "light" | "dark";
   timestampFormat: TimestampFormat;
   workspaceRoot: string | undefined;
+  activeProjectName?: string | null;
+  activeProjectCwd?: string | null;
   onIsAtEndChange: (isAtEnd: boolean) => void;
 }
+
+const SCROLL_BOTTOM_THRESHOLD_PX = 8;
 
 // ---------------------------------------------------------------------------
 // MessagesTimeline — list owner
@@ -141,6 +152,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   resolvedTheme,
   timestampFormat,
   workspaceRoot,
+  activeProjectName,
+  activeProjectCwd,
   onIsAtEndChange,
 }: MessagesTimelineProps) {
   const rawRows = useMemo(
@@ -167,7 +180,21 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const handleScroll = useCallback(() => {
     const state = listRef.current?.getState?.();
     if (state) {
-      onIsAtEndChange(state.isAtEnd);
+      const scrollOffset = Math.max(0, Number.isFinite(state.scroll) ? state.scroll : 0);
+      const contentSize = Math.max(
+        0,
+        Number.isFinite(state.contentLength) ? state.contentLength : 0,
+      );
+      const viewportSize = Math.max(
+        0,
+        Number.isFinite(state.scrollLength) ? state.scrollLength : 0,
+      );
+      const maxScrollOffset = Math.max(0, contentSize - viewportSize);
+      const normalizedScrollOffset = Math.min(maxScrollOffset, scrollOffset);
+      const distanceFromBottom = Math.max(0, contentSize - viewportSize - normalizedScrollOffset);
+      const isAtBottom = state.isAtEnd || distanceFromBottom <= SCROLL_BOTTOM_THRESHOLD_PX;
+
+      onIsAtEndChange(isAtBottom);
     }
   }, [listRef, onIsAtEndChange]);
 
@@ -239,11 +266,11 @@ export const MessagesTimeline = memo(function MessagesTimeline({
 
   if (rows.length === 0 && !isWorking) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground/30">
-          Send a message to start the conversation.
-        </p>
-      </div>
+      <EmptyChatProjectState
+        environmentId={activeThreadEnvironmentId}
+        projectName={activeProjectName ?? null}
+        projectCwd={activeProjectCwd ?? null}
+      />
     );
   }
 
@@ -268,6 +295,46 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   );
 });
 
+function EmptyChatProjectState({
+  environmentId,
+  projectName,
+  projectCwd,
+}: {
+  environmentId: EnvironmentId;
+  projectName?: string | null;
+  projectCwd?: string | null;
+}) {
+  const displayName = projectName?.trim() || "this project";
+
+  return (
+    <div className="flex h-full min-h-0 items-center justify-center px-6 pb-12 text-center">
+      <div className="flex max-w-xl animate-in fade-in-0 zoom-in-95 duration-300 flex-col items-center">
+        <div className="group relative mb-5 size-12 overflow-hidden rounded-[14px] bg-foreground/[0.03] ring-1 ring-foreground/[0.055] shadow-[0_18px_50px_color-mix(in_oklab,var(--foreground)_8%,transparent)] transition-transform duration-300 hover:scale-105">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-10 rounded-[inherit] shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_8%,transparent)]"
+          />
+          {projectCwd ? (
+            <ProjectFavicon
+              environmentId={environmentId}
+              cwd={projectCwd}
+              className="size-full rounded-[inherit] text-muted-foreground/55"
+            />
+          ) : (
+            <div className="size-full rounded-[inherit] bg-muted/60" />
+          )}
+        </div>
+
+        <div>
+          <h2 className="text-pretty font-medium text-2xl text-foreground tracking-normal sm:text-3xl">
+            What should we work on in {displayName}?
+          </h2>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function keyExtractor(item: MessagesTimelineRow) {
   return item.id;
 }
@@ -278,7 +345,7 @@ function keyExtractor(item: MessagesTimelineRow) {
 
 type TimelineEntry = ReturnType<typeof deriveTimelineEntries>[number];
 type TimelineMessage = Extract<TimelineEntry, { kind: "message" }>["message"];
-type TimelineWorkEntry = Extract<MessagesTimelineRow, { kind: "work" }>["groupedEntries"][number];
+type TimelineWorkEntry = Extract<MessagesTimelineRow, { kind: "work" }>["entry"];
 type TimelineRow = MessagesTimelineRow;
 
 function TimelineRowContent({ row }: { row: TimelineRow }) {
@@ -295,7 +362,7 @@ function TimelineRowContent({ row }: { row: TimelineRow }) {
       data-message-id={row.kind === "message" ? row.message.id : undefined}
       data-message-role={row.kind === "message" ? row.message.role : undefined}
     >
-      {row.kind === "work" && <WorkGroupSection groupedEntries={row.groupedEntries} />}
+      {row.kind === "work" && <InlineWorkEntryRow workEntry={row.entry} />}
 
       {row.kind === "message" &&
         row.message.role === "user" &&
@@ -305,15 +372,18 @@ function TimelineRowContent({ row }: { row: TimelineRow }) {
           const terminalContexts = displayedUserMessage.contexts;
           const canRevertAgentWork = typeof row.revertTurnCount === "number";
           return (
-            <div className="flex justify-end">
-              <div className="group relative max-w-[80%] rounded-2xl rounded-br-sm border border-border bg-secondary px-4 py-3">
+            <div className="group flex flex-col items-end gap-1">
+              <div
+                className="chat-user-message-bubble relative flex w-auto max-w-[min(42rem,78%)] flex-col gap-3 bg-[color:var(--color-message-user-bubble)] px-3 py-2 text-sm leading-6 text-[color:var(--color-message-user-bubble-foreground)]"
+                title={formatTimestamp(row.message.createdAt, ctx.timestampFormat)}
+              >
                 {userImages.length > 0 && (
                   <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
                     {userImages.map(
                       (image: NonNullable<TimelineMessage["attachments"]>[number]) => (
                         <div
                           key={image.id}
-                          className="overflow-hidden rounded-lg border border-border/80 bg-background/70"
+                          className="overflow-hidden rounded-lg border border-[color:color-mix(in_oklab,var(--color-message-user-bubble-foreground)_16%,transparent)] bg-[color:color-mix(in_oklab,var(--color-message-user-bubble-foreground)_10%,transparent)]"
                         >
                           {image.previewUrl ? (
                             <button
@@ -333,7 +403,7 @@ function TimelineRowContent({ row }: { row: TimelineRow }) {
                               />
                             </button>
                           ) : (
-                            <div className="flex min-h-[72px] items-center justify-center px-2 py-3 text-center text-[11px] text-muted-foreground/70">
+                            <div className="flex min-h-[72px] items-center justify-center px-2 py-3 text-center text-[11px] text-[color:color-mix(in_oklab,var(--color-message-user-bubble-foreground)_76%,transparent)]">
                               {image.name}
                             </div>
                           )}
@@ -349,29 +419,32 @@ function TimelineRowContent({ row }: { row: TimelineRow }) {
                     terminalContexts={terminalContexts}
                   />
                 )}
-                <div className="mt-1.5 flex items-center justify-end gap-2">
-                  <div className="flex items-center gap-1.5 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover:opacity-100">
-                    {displayedUserMessage.copyText && (
-                      <MessageCopyButton text={displayedUserMessage.copyText} />
-                    )}
-                    {canRevertAgentWork && (
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="outline"
-                        disabled={ctx.isRevertingCheckpoint || ctx.isWorking}
-                        onClick={() => ctx.onRevertUserMessage(row.message.id)}
-                        title="Revert to this message"
-                      >
-                        <Undo2Icon className="size-3" />
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-right text-xs text-muted-foreground/50">
-                    {formatTimestamp(row.message.createdAt, ctx.timestampFormat)}
-                  </p>
-                </div>
               </div>
+              {(displayedUserMessage.copyText || canRevertAgentWork) && (
+                <div className="flex items-center gap-1 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover:opacity-100">
+                  {displayedUserMessage.copyText && (
+                    <MessageCopyButton
+                      text={displayedUserMessage.copyText}
+                      size="icon-xs"
+                      variant="ghost"
+                      className="text-muted-foreground/70 hover:bg-muted/55 hover:text-foreground"
+                    />
+                  )}
+                  {canRevertAgentWork && (
+                    <Button
+                      type="button"
+                      size="icon-xs"
+                      variant="ghost"
+                      disabled={ctx.isRevertingCheckpoint || ctx.isWorking}
+                      onClick={() => ctx.onRevertUserMessage(row.message.id)}
+                      title="Revert to this message"
+                      className="text-muted-foreground/70 hover:bg-muted/55 hover:text-foreground"
+                    >
+                      <Undo2Icon className="size-3" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })()}
@@ -413,24 +486,9 @@ function TimelineRowContent({ row }: { row: TimelineRow }) {
                   resolvedTheme={ctx.resolvedTheme}
                   onOpenTurnDiff={ctx.onOpenTurnDiff}
                 />
-                <div className="mt-1.5 flex items-center gap-2">
-                  <p className="text-[10px] text-muted-foreground/30">
-                    {row.message.streaming ? (
-                      <LiveMessageMeta
-                        createdAt={row.message.createdAt}
-                        durationStart={row.durationStart}
-                        timestampFormat={ctx.timestampFormat}
-                      />
-                    ) : (
-                      formatMessageMeta(
-                        row.message.createdAt,
-                        formatElapsed(row.durationStart, row.message.completedAt),
-                        ctx.timestampFormat,
-                      )
-                    )}
-                  </p>
-                  {assistantCopyState.visible ? (
-                    <div className="flex items-center opacity-0 transition-opacity duration-200  group-hover/assistant:opacity-100">
+                {assistantCopyState.visible ? (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <div className="flex items-center opacity-0 transition-opacity duration-200 group-hover/assistant:opacity-100">
                       <MessageCopyButton
                         text={assistantCopyState.text ?? ""}
                         size="icon-xs"
@@ -438,8 +496,8 @@ function TimelineRowContent({ row }: { row: TimelineRow }) {
                         className="border-border/50 bg-background/35 text-muted-foreground/45 shadow-none hover:border-border/70 hover:bg-background/55 hover:text-muted-foreground/70"
                       />
                     </div>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </div>
             </>
           );
@@ -456,26 +514,7 @@ function TimelineRowContent({ row }: { row: TimelineRow }) {
         </div>
       )}
 
-      {row.kind === "working" && (
-        <div className="py-0.5 pl-1.5">
-          <div className="flex items-center gap-2 pt-1 text-[11px] text-muted-foreground/70">
-            <span className="inline-flex items-center gap-[3px]">
-              <span className="h-1 w-1 rounded-full bg-muted-foreground/30 animate-pulse" />
-              <span className="h-1 w-1 rounded-full bg-muted-foreground/30 animate-pulse [animation-delay:200ms]" />
-              <span className="h-1 w-1 rounded-full bg-muted-foreground/30 animate-pulse [animation-delay:400ms]" />
-            </span>
-            <span>
-              {row.createdAt ? (
-                <>
-                  Working for <WorkingTimer createdAt={row.createdAt} />
-                </>
-              ) : (
-                "Working..."
-              )}
-            </span>
-          </div>
-        </div>
-      )}
+      {row.kind === "working" && <AssistantActivityFooter startedAt={row.createdAt} />}
     </div>
   );
 }
@@ -486,91 +525,135 @@ function TimelineRowContent({ row }: { row: TimelineRow }) {
 // React Compiler cannot elide the re-render as a no-op.
 // ---------------------------------------------------------------------------
 
-/** Live "Working for Xs" label. */
-function WorkingTimer({ createdAt }: { createdAt: string }) {
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [createdAt]);
-  return <>{formatWorkingTimer(createdAt, new Date(nowMs).toISOString()) ?? "0s"}</>;
-}
-
-/** Live timestamp + elapsed duration for a streaming assistant message. */
-function LiveMessageMeta({
-  createdAt,
-  durationStart,
-  timestampFormat,
+const InlineWorkEntryRow = memo(function InlineWorkEntryRow({
+  workEntry,
 }: {
-  createdAt: string;
-  durationStart: string | null | undefined;
-  timestampFormat: TimestampFormat;
-}) {
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [durationStart]);
-  const elapsed = durationStart
-    ? formatElapsed(durationStart, new Date(nowMs).toISOString())
-    : null;
-  return <>{formatMessageMeta(createdAt, elapsed, timestampFormat)}</>;
-}
-
-// ---------------------------------------------------------------------------
-// Extracted row sections — own their state / store subscriptions so changes
-// re-render only the affected row, not the entire list.
-// ---------------------------------------------------------------------------
-
-/** Owns its own expand/collapse state so toggling re-renders only this row.
- *  State resets on unmount which is fine — work groups start collapsed. */
-const WorkGroupSection = memo(function WorkGroupSection({
-  groupedEntries,
-}: {
-  groupedEntries: Extract<MessagesTimelineRow, { kind: "work" }>["groupedEntries"];
+  workEntry: TimelineWorkEntry;
 }) {
   const { workspaceRoot } = use(TimelineRowCtx);
   const [isExpanded, setIsExpanded] = useState(false);
-  const hasOverflow = groupedEntries.length > MAX_VISIBLE_WORK_LOG_ENTRIES;
-  const visibleEntries =
-    hasOverflow && !isExpanded
-      ? groupedEntries.slice(-MAX_VISIBLE_WORK_LOG_ENTRIES)
-      : groupedEntries;
-  const hiddenCount = groupedEntries.length - visibleEntries.length;
-  const onlyToolEntries = groupedEntries.every((entry) => entry.tone === "tool");
-  const showHeader = hasOverflow || !onlyToolEntries;
-  const groupLabel = onlyToolEntries ? "Tool calls" : "Work log";
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const presentation = useMemo(() => getToolActivityPresentation(workEntry), [workEntry]);
+  const canExpand = presentation.details.length > 0;
+  const ActivityIcon = toolActivityIcon(presentation.iconKind);
+  const toneClass = toolActivityToneClass(presentation);
+
+  const handleToggle = useCallback(() => {
+    if (!canExpand) return;
+    preserveScrollAnchor(buttonRef.current, () => setIsExpanded((value) => !value));
+  }, [canExpand]);
 
   return (
-    <div className="rounded-xl border border-border/45 bg-card/25 px-2 py-1.5">
-      {showHeader && (
-        <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
-          <p className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground/55">
-            {groupLabel} ({groupedEntries.length})
-          </p>
-          {hasOverflow && (
-            <button
-              type="button"
-              className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground/55 transition-colors duration-150 hover:text-foreground/75"
-              onClick={() => setIsExpanded((v) => !v)}
-            >
-              {isExpanded ? "Show less" : `Show ${hiddenCount} more`}
-            </button>
-          )}
+    <div className={cn("group w-full py-0 text-sm leading-5", toneClass)}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={cn(
+          "inline-flex max-w-full items-center gap-1.5 text-left align-top",
+          canExpand ? "hover:text-foreground/88" : "cursor-default",
+        )}
+        disabled={!canExpand}
+        aria-expanded={canExpand ? isExpanded : undefined}
+        onClick={handleToggle}
+      >
+        <ActivityIcon className="size-3.5 shrink-0 text-muted-foreground/70" />
+        <span className="min-w-0 flex-1">
+          <ToolActivitySummary presentation={presentation} workspaceRoot={workspaceRoot} />
+        </span>
+        {canExpand && (
+          <span
+            className={cn(
+              "shrink-0 text-muted-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100",
+              isExpanded && "opacity-100",
+            )}
+          >
+            {isExpanded ? (
+              <ChevronDownIcon className="size-4" />
+            ) : (
+              <ChevronRightIcon className="size-4" />
+            )}
+          </span>
+        )}
+      </button>
+      {canExpand && isExpanded && (
+        <div className="mt-2 space-y-2 pl-5">
+          {presentation.details.map((detail) => (
+            <ToolActivityDetail key={detail.label} label={detail.label} value={detail.value} />
+          ))}
         </div>
       )}
-      <div className="space-y-0.5">
-        {visibleEntries.map((workEntry) => (
-          <SimpleWorkEntryRow
-            key={`work-row:${workEntry.id}`}
-            workEntry={workEntry}
-            workspaceRoot={workspaceRoot}
-          />
-        ))}
-      </div>
     </div>
   );
 });
+
+function ToolActivitySummary({
+  presentation,
+  workspaceRoot,
+}: {
+  presentation: ToolActivityPresentation;
+  workspaceRoot: string | undefined;
+}) {
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+      <span className="shrink-0">{presentation.verb}</span>
+      {presentation.target && (
+        <ToolActivityTarget
+          value={presentation.target}
+          kind={presentation.targetKind}
+          workspaceRoot={workspaceRoot}
+        />
+      )}
+    </span>
+  );
+}
+
+function ToolActivityTarget({
+  value,
+  kind,
+  workspaceRoot,
+}: {
+  value: string;
+  kind: ToolActivityPresentation["targetKind"];
+  workspaceRoot: string | undefined;
+}) {
+  if (kind === "code") {
+    return (
+      <span
+        title={value}
+        className="inline-block min-w-0 max-w-[min(28rem,62vw)] truncate align-bottom font-mono text-[0.95em] text-foreground/84"
+      >
+        {value}
+      </span>
+    );
+  }
+
+  const displayValue = kind === "path" ? formatWorkspaceRelativePath(value, workspaceRoot) : value;
+
+  return (
+    <span
+      title={displayValue}
+      className={cn(
+        "inline-block min-w-0 max-w-[min(24rem,58vw)] truncate align-bottom",
+        kind === "path" ? "font-mono text-[color:var(--color-chat-file-accent)]" : "",
+      )}
+    >
+      {displayValue}
+    </span>
+  );
+}
+
+function ToolActivityDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/55">
+        {label}
+      </div>
+      <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/35 px-3 py-2 font-mono text-[11px] leading-5 text-foreground/80">
+        {value}
+      </pre>
+    </div>
+  );
+}
 
 /** Subscribes directly to the UI state store for expand/collapse state,
  *  so toggling re-renders only this component — not the entire list. */
@@ -729,7 +812,7 @@ const UserMessageBody = memo(function UserMessageBody(props: {
         }
 
         return (
-          <div className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-foreground">
+          <div className="whitespace-pre-wrap wrap-break-word text-sm leading-6 text-[color:var(--color-message-user-bubble-foreground)]">
             {inlineNodes}
           </div>
         );
@@ -757,7 +840,7 @@ const UserMessageBody = memo(function UserMessageBody(props: {
     }
 
     return (
-      <div className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-foreground">
+      <div className="whitespace-pre-wrap wrap-break-word text-sm leading-6 text-[color:var(--color-message-user-bubble-foreground)]">
         {inlineNodes}
       </div>
     );
@@ -768,7 +851,7 @@ const UserMessageBody = memo(function UserMessageBody(props: {
   }
 
   return (
-    <div className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-foreground">
+    <div className="whitespace-pre-wrap wrap-break-word text-sm leading-6 text-[color:var(--color-message-user-bubble-foreground)]">
       {props.text}
     </div>
   );
@@ -798,255 +881,84 @@ function useStableRows(rows: MessagesTimelineRow[]): MessagesTimelineRow[] {
 // Pure helpers
 // ---------------------------------------------------------------------------
 
-function formatWorkingTimer(startIso: string, endIso: string): string | null {
-  const startedAtMs = Date.parse(startIso);
-  const endedAtMs = Date.parse(endIso);
-  if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs)) {
-    return null;
-  }
-
-  const elapsedSeconds = Math.max(0, Math.floor((endedAtMs - startedAtMs) / 1000));
-  if (elapsedSeconds < 60) {
-    return `${elapsedSeconds}s`;
-  }
-
-  const hours = Math.floor(elapsedSeconds / 3600);
-  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-  const seconds = elapsedSeconds % 60;
-
-  if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-  }
-
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
-}
-
-function formatMessageMeta(
-  createdAt: string,
-  duration: string | null,
-  timestampFormat: TimestampFormat,
-): string {
-  if (!duration) return formatTimestamp(createdAt, timestampFormat);
-  return `${formatTimestamp(createdAt, timestampFormat)} • ${duration}`;
-}
-
-function workToneIcon(tone: TimelineWorkEntry["tone"]): {
-  icon: LucideIcon;
-  className: string;
-} {
-  if (tone === "error") {
-    return {
-      icon: CircleAlertIcon,
-      className: "text-foreground/92",
-    };
-  }
-  if (tone === "thinking") {
-    return {
-      icon: BotIcon,
-      className: "text-foreground/92",
-    };
-  }
-  if (tone === "info") {
-    return {
-      icon: CheckIcon,
-      className: "text-foreground/92",
-    };
-  }
-  return {
-    icon: ZapIcon,
-    className: "text-foreground/92",
-  };
-}
-
-function workToneClass(tone: "thinking" | "tool" | "info" | "error"): string {
-  if (tone === "error") return "text-rose-300/50 dark:text-rose-300/50";
-  if (tone === "tool") return "text-muted-foreground/70";
-  if (tone === "thinking") return "text-muted-foreground/50";
-  return "text-muted-foreground/40";
-}
-
-function workEntryPreview(
-  workEntry: Pick<TimelineWorkEntry, "detail" | "command" | "changedFiles">,
-  workspaceRoot: string | undefined,
-) {
-  if (workEntry.command) return workEntry.command;
-  if (workEntry.detail) return workEntry.detail;
-  if ((workEntry.changedFiles?.length ?? 0) === 0) return null;
-  const [firstPath] = workEntry.changedFiles ?? [];
-  if (!firstPath) return null;
-  const displayPath = formatWorkspaceRelativePath(firstPath, workspaceRoot);
-  return workEntry.changedFiles!.length === 1
-    ? displayPath
-    : `${displayPath} +${workEntry.changedFiles!.length - 1} more`;
-}
-
-function workEntryRawCommand(
-  workEntry: Pick<TimelineWorkEntry, "command" | "rawCommand">,
-): string | null {
-  const rawCommand = workEntry.rawCommand?.trim();
-  if (!rawCommand || !workEntry.command) {
-    return null;
-  }
-  return rawCommand === workEntry.command.trim() ? null : rawCommand;
-}
-
-function workEntryIcon(workEntry: TimelineWorkEntry): LucideIcon {
-  if (workEntry.requestKind === "command") return TerminalIcon;
-  if (workEntry.requestKind === "file-read") return EyeIcon;
-  if (workEntry.requestKind === "file-change") return SquarePenIcon;
-
-  if (workEntry.itemType === "command_execution" || workEntry.command) {
-    return TerminalIcon;
-  }
-  if (workEntry.itemType === "file_change" || (workEntry.changedFiles?.length ?? 0) > 0) {
-    return SquarePenIcon;
-  }
-  if (workEntry.itemType === "web_search") return GlobeIcon;
-  if (workEntry.itemType === "image_view") return EyeIcon;
-
-  switch (workEntry.itemType) {
-    case "mcp_tool_call":
+function toolActivityIcon(kind: ToolActivityIconKind): LucideIcon {
+  switch (kind) {
+    case "terminal":
+      return TerminalIcon;
+    case "read":
+      return EyeIcon;
+    case "search":
+      return SearchIcon;
+    case "edit":
+      return SquarePenIcon;
+    case "web":
+      return GlobeIcon;
+    case "image":
+      return ImageIcon;
+    case "mcp":
       return WrenchIcon;
-    case "dynamic_tool_call":
-    case "collab_agent_tool_call":
+    case "subagent":
       return HammerIcon;
+    case "thought":
+      return BrainIcon;
+    case "todo":
+      return CheckIcon;
+    case "error":
+      return CircleAlertIcon;
+    case "info":
+      return CheckIcon;
   }
-
-  return workToneIcon(workEntry.tone).icon;
 }
 
-function capitalizePhrase(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return value;
-  }
-  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
+function toolActivityToneClass(presentation: Pick<ToolActivityPresentation, "tone">): string {
+  if (presentation.tone === "error") return "text-rose-300/70 dark:text-rose-300/70";
+  if (presentation.tone === "muted") return "text-muted-foreground/58";
+  return "text-muted-foreground/78";
 }
 
-function toolWorkEntryHeading(workEntry: TimelineWorkEntry): string {
-  if (!workEntry.toolTitle) {
-    return capitalizePhrase(normalizeCompactToolLabel(workEntry.label));
+function findScrollableParent(node: HTMLElement | null): HTMLElement | null {
+  let current = node?.parentElement ?? null;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    if (/(auto|scroll)/.test(`${style.overflowY}${style.overflow}`)) {
+      return current;
+    }
+    current = current.parentElement;
   }
-  return capitalizePhrase(normalizeCompactToolLabel(workEntry.toolTitle));
+  return null;
 }
 
-const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
-  workEntry: TimelineWorkEntry;
-  workspaceRoot: string | undefined;
-}) {
-  const { workEntry, workspaceRoot } = props;
-  const iconConfig = workToneIcon(workEntry.tone);
-  const EntryIcon = workEntryIcon(workEntry);
-  const heading = toolWorkEntryHeading(workEntry);
-  const rawPreview = workEntryPreview(workEntry, workspaceRoot);
-  const preview =
-    rawPreview &&
-    normalizeCompactToolLabel(rawPreview).toLowerCase() ===
-      normalizeCompactToolLabel(heading).toLowerCase()
-      ? null
-      : rawPreview;
-  const rawCommand = workEntryRawCommand(workEntry);
-  const displayText = preview ? `${heading} - ${preview}` : heading;
-  const hasChangedFiles = (workEntry.changedFiles?.length ?? 0) > 0;
-  const previewIsChangedFiles = hasChangedFiles && !workEntry.command && !workEntry.detail;
+function preserveScrollAnchor(anchor: HTMLElement | null, update: () => void) {
+  const scrollParent = findScrollableParent(anchor);
+  const beforeTop = anchor?.getBoundingClientRect().top ?? null;
+  update();
+  if (!anchor || beforeTop === null) return;
+
+  window.requestAnimationFrame(() => {
+    const afterTop = anchor.getBoundingClientRect().top;
+    const delta = afterTop - beforeTop;
+    if (delta === 0) return;
+    if (scrollParent) {
+      scrollParent.scrollTop += delta;
+      return;
+    }
+    window.scrollBy({ top: delta });
+  });
+}
+
+function AssistantActivityFooter({ startedAt }: { startedAt: string | null }) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const elapsed = startedAt ? formatElapsed(startedAt, new Date(nowMs).toISOString()) : null;
 
   return (
-    <div className="rounded-lg px-1 py-1">
-      <div className="flex items-center gap-2 transition-[opacity,translate] duration-200">
-        <span
-          className={cn("flex size-5 shrink-0 items-center justify-center", iconConfig.className)}
-        >
-          <EntryIcon className="size-3" />
-        </span>
-        <div className="min-w-0 flex-1 overflow-hidden">
-          {rawCommand ? (
-            <div className="max-w-full">
-              <p
-                className={cn(
-                  "truncate text-xs leading-5",
-                  workToneClass(workEntry.tone),
-                  preview ? "text-muted-foreground/70" : "",
-                )}
-                title={displayText}
-              >
-                <span className={cn("text-foreground/80", workToneClass(workEntry.tone))}>
-                  {heading}
-                </span>
-                {preview && (
-                  <Tooltip>
-                    <TooltipTrigger
-                      closeDelay={0}
-                      delay={75}
-                      render={
-                        <span className="max-w-full cursor-default text-muted-foreground/55 transition-colors hover:text-muted-foreground/75 focus-visible:text-muted-foreground/75">
-                          {" "}
-                          - {preview}
-                        </span>
-                      }
-                    />
-                    <TooltipPopup
-                      align="start"
-                      className="max-w-[min(56rem,calc(100vw-2rem))] px-0 py-0"
-                      side="top"
-                    >
-                      <div className="max-w-[min(56rem,calc(100vw-2rem))] overflow-x-auto px-1.5 py-1 font-mono text-[11px] leading-4 whitespace-nowrap">
-                        {rawCommand}
-                      </div>
-                    </TooltipPopup>
-                  </Tooltip>
-                )}
-              </p>
-            </div>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger
-                className="block min-w-0 w-full text-left"
-                title={displayText}
-                aria-label={displayText}
-              >
-                <p
-                  className={cn(
-                    "truncate text-[11px] leading-5",
-                    workToneClass(workEntry.tone),
-                    preview ? "text-muted-foreground/70" : "",
-                  )}
-                >
-                  <span className={cn("text-foreground/80", workToneClass(workEntry.tone))}>
-                    {heading}
-                  </span>
-                  {preview && <span className="text-muted-foreground/55"> - {preview}</span>}
-                </p>
-              </TooltipTrigger>
-              <TooltipPopup className="max-w-[min(720px,calc(100vw-2rem))]">
-                <p className="whitespace-pre-wrap wrap-break-word text-xs leading-5">
-                  {displayText}
-                </p>
-              </TooltipPopup>
-            </Tooltip>
-          )}
-        </div>
-      </div>
-      {hasChangedFiles && !previewIsChangedFiles && (
-        <div className="mt-1 flex flex-wrap gap-1 pl-6">
-          {workEntry.changedFiles?.slice(0, 4).map((filePath) => {
-            const displayPath = formatWorkspaceRelativePath(filePath, workspaceRoot);
-            return (
-              <span
-                key={`${workEntry.id}:${filePath}`}
-                className="rounded-md border border-border/55 bg-background/75 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/75"
-                title={displayPath}
-              >
-                {displayPath}
-              </span>
-            );
-          })}
-          {(workEntry.changedFiles?.length ?? 0) > 4 && (
-            <span className="px-1 text-[10px] text-muted-foreground/55">
-              +{(workEntry.changedFiles?.length ?? 0) - 4}
-            </span>
-          )}
-        </div>
-      )}
+    <div className="mt-5 flex h-5 items-center gap-2 px-1 text-xs tracking-[0.01em] text-muted-foreground/80 tabular-nums">
+      <LoadingDots className="shrink-0" />
+      {elapsed ? <span>{elapsed}</span> : null}
     </div>
   );
-});
+}

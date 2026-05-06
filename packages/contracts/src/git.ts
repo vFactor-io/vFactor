@@ -194,10 +194,17 @@ export type GitInitInput = typeof GitInitInput.Type;
 const GitStatusPr = Schema.Struct({
   number: PositiveInt,
   title: TrimmedNonEmptyStringSchema,
+  description: Schema.optional(Schema.String.pipe(Schema.NullOr)),
   url: Schema.String,
   baseBranch: TrimmedNonEmptyStringSchema,
   headBranch: TrimmedNonEmptyStringSchema,
   state: GitStatusPrState,
+  checksStatus: Schema.optional(Schema.Literals(["none", "pending", "passed", "failed"])),
+  checksError: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  failedChecksCount: Schema.optional(NonNegativeInt),
+  failedCheckNames: Schema.optional(Schema.Array(TrimmedNonEmptyStringSchema)),
+  pendingChecksCount: Schema.optional(NonNegativeInt),
+  passedChecksCount: Schema.optional(NonNegativeInt),
 });
 
 const GitStatusLocalShape = {
@@ -278,6 +285,122 @@ export const GitPreparePullRequestThreadResult = Schema.Struct({
   worktreePath: TrimmedNonEmptyStringSchema.pipe(Schema.NullOr),
 });
 export type GitPreparePullRequestThreadResult = typeof GitPreparePullRequestThreadResult.Type;
+
+export const GitPullRequestChecksInput = Schema.Struct({
+  cwd: TrimmedNonEmptyStringSchema,
+  includeActivity: Schema.optional(Schema.Boolean),
+});
+export type GitPullRequestChecksInput = typeof GitPullRequestChecksInput.Type;
+
+export const GitPullRequestCheckStatus = Schema.Literals([
+  "pending",
+  "passed",
+  "failed",
+  "cancelled",
+  "skipped",
+]);
+export type GitPullRequestCheckStatus = typeof GitPullRequestCheckStatus.Type;
+
+export const GitPullRequestCheck = Schema.Struct({
+  id: TrimmedNonEmptyStringSchema,
+  name: TrimmedNonEmptyStringSchema,
+  workflowName: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  description: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  event: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  status: GitPullRequestCheckStatus,
+  startedAt: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  completedAt: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  detailsUrl: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  errorText: Schema.optional(Schema.String),
+  errorCopyText: Schema.optional(Schema.String),
+  hasFailureDetails: Schema.Boolean,
+});
+export type GitPullRequestCheck = typeof GitPullRequestCheck.Type;
+
+export const GitPullRequestReviewState = Schema.Literals([
+  "APPROVED",
+  "CHANGES_REQUESTED",
+  "COMMENTED",
+  "DISMISSED",
+  "PENDING",
+  "UNKNOWN",
+]);
+export type GitPullRequestReviewState = typeof GitPullRequestReviewState.Type;
+
+export const GitPullRequestReview = Schema.Struct({
+  id: TrimmedNonEmptyStringSchema,
+  authorLogin: TrimmedNonEmptyStringSchema,
+  authorAvatarUrl: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  authorAssociation: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  body: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  state: GitPullRequestReviewState,
+  submittedAt: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  commitOid: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+});
+export type GitPullRequestReview = typeof GitPullRequestReview.Type;
+
+export const GitPullRequestComment = Schema.Struct({
+  id: TrimmedNonEmptyStringSchema,
+  authorLogin: TrimmedNonEmptyStringSchema,
+  authorAvatarUrl: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  authorAssociation: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  body: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  createdAt: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  url: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+});
+export type GitPullRequestComment = typeof GitPullRequestComment.Type;
+
+export const GitPullRequestCommit = Schema.Struct({
+  oid: TrimmedNonEmptyStringSchema,
+  abbreviatedOid: TrimmedNonEmptyStringSchema,
+  messageHeadline: TrimmedNonEmptyStringSchema,
+  messageBody: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  authoredDate: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  committedDate: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  url: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  authorName: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  authorEmail: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  authorLogin: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  authorAvatarUrl: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+});
+export type GitPullRequestCommit = typeof GitPullRequestCommit.Type;
+
+export const GitPullRequestReviewComment = Schema.Struct({
+  id: TrimmedNonEmptyStringSchema,
+  threadId: TrimmedNonEmptyStringSchema,
+  pullRequestReviewId: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  authorLogin: TrimmedNonEmptyStringSchema,
+  authorAvatarUrl: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  body: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  path: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  state: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  createdAt: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  publishedAt: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  url: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  diffHunk: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  line: Schema.optional(NonNegativeInt.pipe(Schema.NullOr)),
+  startLine: Schema.optional(NonNegativeInt.pipe(Schema.NullOr)),
+  originalLine: Schema.optional(NonNegativeInt.pipe(Schema.NullOr)),
+  originalStartLine: Schema.optional(NonNegativeInt.pipe(Schema.NullOr)),
+  isResolved: Schema.Boolean,
+  isOutdated: Schema.Boolean,
+  replyToId: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+});
+export type GitPullRequestReviewComment = typeof GitPullRequestReviewComment.Type;
+
+export const GitPullRequestChecksResult = Schema.Struct({
+  pullRequest: GitStatusPr.pipe(Schema.NullOr),
+  checks: Schema.Array(GitPullRequestCheck),
+  commits: Schema.Array(GitPullRequestCommit),
+  reviews: Schema.Array(GitPullRequestReview),
+  comments: Schema.Array(GitPullRequestComment),
+  reviewComments: Schema.Array(GitPullRequestReviewComment),
+  pullRequestNumber: PositiveInt.pipe(Schema.NullOr),
+  error: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+  activityIncluded: Schema.optional(Schema.Boolean),
+  activityError: Schema.optional(Schema.String.pipe(Schema.NullOr)),
+});
+export type GitPullRequestChecksResult = typeof GitPullRequestChecksResult.Type;
 
 export const GitCheckoutResult = Schema.Struct({
   branch: Schema.NullOr(TrimmedNonEmptyStringSchema),

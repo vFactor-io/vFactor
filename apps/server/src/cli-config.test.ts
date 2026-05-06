@@ -54,15 +54,15 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
             ConfigProvider.layer(
               ConfigProvider.fromEnv({
                 env: {
-                  T3CODE_LOG_LEVEL: "Warn",
-                  T3CODE_MODE: "desktop",
-                  T3CODE_PORT: "4001",
-                  T3CODE_HOST: "0.0.0.0",
-                  T3CODE_HOME: baseDir,
+                  VFACTOR_LOG_LEVEL: "Warn",
+                  VFACTOR_MODE: "desktop",
+                  VFACTOR_PORT: "4001",
+                  VFACTOR_HOST: "0.0.0.0",
+                  VFACTOR_HOME: baseDir,
                   VITE_DEV_SERVER_URL: "http://127.0.0.1:5173",
-                  T3CODE_NO_BROWSER: "true",
-                  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "false",
-                  T3CODE_LOG_WS_EVENTS: "true",
+                  VFACTOR_NO_BROWSER: "true",
+                  VFACTOR_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "false",
+                  VFACTOR_LOG_WS_EVENTS: "true",
                 },
               }),
             ),
@@ -116,15 +116,15 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
             ConfigProvider.layer(
               ConfigProvider.fromEnv({
                 env: {
-                  T3CODE_LOG_LEVEL: "Warn",
-                  T3CODE_MODE: "desktop",
-                  T3CODE_PORT: "4001",
-                  T3CODE_HOST: "0.0.0.0",
-                  T3CODE_HOME: join(os.tmpdir(), "ignored-base"),
+                  VFACTOR_LOG_LEVEL: "Warn",
+                  VFACTOR_MODE: "desktop",
+                  VFACTOR_PORT: "4001",
+                  VFACTOR_HOST: "0.0.0.0",
+                  VFACTOR_HOME: join(os.tmpdir(), "ignored-base"),
                   VITE_DEV_SERVER_URL: "http://127.0.0.1:5173",
-                  T3CODE_NO_BROWSER: "false",
-                  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "false",
-                  T3CODE_LOG_WS_EVENTS: "false",
+                  VFACTOR_NO_BROWSER: "false",
+                  VFACTOR_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "false",
+                  VFACTOR_LOG_WS_EVENTS: "false",
                 },
               }),
             ),
@@ -184,10 +184,10 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
             ConfigProvider.layer(
               ConfigProvider.fromEnv({
                 env: {
-                  T3CODE_BOOTSTRAP_FD: String(fd),
-                  T3CODE_NO_BROWSER: "true",
-                  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "true",
-                  T3CODE_LOG_WS_EVENTS: "true",
+                  VFACTOR_BOOTSTRAP_FD: String(fd),
+                  VFACTOR_NO_BROWSER: "true",
+                  VFACTOR_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "true",
+                  VFACTOR_LOG_WS_EVENTS: "true",
                 },
               }),
             ),
@@ -254,7 +254,7 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
             ConfigProvider.layer(
               ConfigProvider.fromEnv({
                 env: {
-                  T3CODE_BOOTSTRAP_FD: String(fd),
+                  VFACTOR_BOOTSTRAP_FD: String(fd),
                 },
               }),
             ),
@@ -369,12 +369,12 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
             ConfigProvider.layer(
               ConfigProvider.fromEnv({
                 env: {
-                  T3CODE_MODE: "web",
-                  T3CODE_BOOTSTRAP_FD: String(fd),
-                  T3CODE_HOME: baseDir,
-                  T3CODE_NO_BROWSER: "true",
-                  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "true",
-                  T3CODE_LOG_WS_EVENTS: "true",
+                  VFACTOR_MODE: "web",
+                  VFACTOR_BOOTSTRAP_FD: String(fd),
+                  VFACTOR_HOME: baseDir,
+                  VFACTOR_NO_BROWSER: "true",
+                  VFACTOR_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "true",
+                  VFACTOR_LOG_WS_EVENTS: "true",
                 },
               }),
             ),
@@ -496,8 +496,8 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
             ConfigProvider.layer(
               ConfigProvider.fromEnv({
                 env: {
-                  T3CODE_NO_BROWSER: "false",
-                  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "true",
+                  VFACTOR_NO_BROWSER: "false",
+                  VFACTOR_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "true",
                 },
               }),
             ),

@@ -14,6 +14,7 @@ import { useUiStateStore } from "../uiStateStore";
 import { resolveThreadStatusPill, type ThreadStatusPill } from "./Sidebar.logic";
 import type { SidebarThreadSummary } from "../types";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
+import { LoadingDots } from "./ui/loading-dots";
 
 export interface PrStatusIndicator {
   label: "PR open" | "PR closed" | "PR merged";
@@ -91,17 +92,23 @@ export function ThreadStatusLabel({
   status: ThreadStatusPill;
   compact?: boolean;
 }) {
+  const isActiveAgentStatus = status.label === "Working" || status.label === "Connecting";
+
   if (compact) {
     return (
       <span
         title={status.label}
         className={`inline-flex size-3.5 shrink-0 items-center justify-center ${status.colorClass}`}
       >
-        <span
-          className={`size-[9px] rounded-full ${status.dotClass} ${
-            status.pulse ? "animate-pulse" : ""
-          }`}
-        />
+        {isActiveAgentStatus ? (
+          <LoadingDots variant={status.label === "Connecting" ? "connecting" : "loading"} />
+        ) : (
+          <span
+            className={`size-[9px] rounded-sm ${status.dotClass} ${
+              status.pulse ? "animate-pulse" : ""
+            }`}
+          />
+        )}
         <span className="sr-only">{status.label}</span>
       </span>
     );
@@ -112,12 +119,16 @@ export function ThreadStatusLabel({
       title={status.label}
       className={`inline-flex items-center gap-1 text-[10px] ${status.colorClass}`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${status.dotClass} ${
-          status.pulse ? "animate-pulse" : ""
-        }`}
-      />
-      <span className="hidden md:inline">{status.label}</span>
+      {isActiveAgentStatus ? (
+        <LoadingDots variant={status.label === "Connecting" ? "connecting" : "loading"} />
+      ) : (
+        <span
+          className={`size-1.5 rounded-sm ${status.dotClass} ${
+            status.pulse ? "animate-pulse" : ""
+          }`}
+        />
+      )}
+      {!isActiveAgentStatus && <span className="hidden md:inline">{status.label}</span>}
     </span>
   );
 }

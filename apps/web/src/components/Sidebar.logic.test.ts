@@ -199,12 +199,12 @@ describe("resolveSidebarNewThreadSeedContext", () => {
         activeThread: {
           projectId: "project-1",
           branch: "feature/existing",
-          worktreePath: "/repo/.t3/worktrees/existing",
+          worktreePath: "/repo/.vfactor/worktrees/existing",
         },
         activeDraftThread: {
           projectId: "project-1",
           branch: "feature/draft",
-          worktreePath: "/repo/.t3/worktrees/draft",
+          worktreePath: "/repo/.vfactor/worktrees/draft",
           envMode: "worktree",
         },
       }),
@@ -575,24 +575,25 @@ describe("resolveThreadStatusPill", () => {
 describe("resolveThreadRowClassName", () => {
   it("uses the darker selected palette when a thread is both selected and active", () => {
     const className = resolveThreadRowClassName({ isActive: true, isSelected: true });
-    expect(className).toContain("bg-primary/22");
-    expect(className).toContain("hover:bg-primary/26");
-    expect(className).toContain("dark:bg-primary/30");
-    expect(className).not.toContain("bg-accent/85");
+    expect(className).toContain("bg-[var(--sidebar-item-active)]");
+    expect(className).toContain("hover:bg-[var(--sidebar-item-active)]");
+    expect(className).toContain("font-medium");
+    expect(className).not.toContain("hover:bg-[var(--sidebar-item-hover)]");
   });
 
   it("uses selected hover colors for selected threads", () => {
     const className = resolveThreadRowClassName({ isActive: false, isSelected: true });
-    expect(className).toContain("bg-primary/15");
-    expect(className).toContain("hover:bg-primary/19");
-    expect(className).toContain("dark:bg-primary/22");
-    expect(className).not.toContain("hover:bg-accent");
+    expect(className).toContain("bg-[var(--sidebar-item-active)]");
+    expect(className).toContain("hover:bg-[var(--sidebar-item-active)]");
+    expect(className).not.toContain("font-medium");
+    expect(className).not.toContain("hover:bg-[var(--sidebar-item-hover)]");
   });
 
   it("keeps the accent palette for active-only threads", () => {
     const className = resolveThreadRowClassName({ isActive: true, isSelected: false });
-    expect(className).toContain("bg-accent/85");
-    expect(className).toContain("hover:bg-accent");
+    expect(className).toContain("bg-[var(--sidebar-item-active)]");
+    expect(className).toContain("hover:bg-[var(--sidebar-item-active)]");
+    expect(className).toContain("font-medium");
   });
 });
 

@@ -109,7 +109,7 @@ const OpenCodeTextGenerationTestLayer = Layer.succeed(
 ).pipe(
   Layer.provideMerge(
     ServerConfig.layerTest(process.cwd(), {
-      prefix: "t3code-opencode-text-generation-test-",
+      prefix: "vfactor-opencode-text-generation-test-",
     }),
   ),
   Layer.provideMerge(NetService.layer),
@@ -122,7 +122,7 @@ const OpenCodeTextGenerationExistingServerTestLayer = Layer.succeed(
 ).pipe(
   Layer.provideMerge(
     ServerConfig.layerTest(process.cwd(), {
-      prefix: "t3code-opencode-text-generation-existing-server-test-",
+      prefix: "vfactor-opencode-text-generation-existing-server-test-",
     }),
   ),
   Layer.provideMerge(NetService.layer),

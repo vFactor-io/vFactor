@@ -553,7 +553,7 @@ export function BranchToolbarBranchSelector({
       >
         <div className="flex w-full items-center justify-between gap-2">
           <span className="truncate">{itemValue}</span>
-          {badge && <span className="shrink-0 text-[10px] text-muted-foreground/45">{badge}</span>}
+          {badge && <span className="shrink-0 text-xs text-muted-foreground/45">{badge}</span>}
         </div>
       </ComboboxItem>
     );
@@ -580,7 +580,10 @@ export function BranchToolbarBranchSelector({
     >
       <ComboboxTrigger
         render={<Button variant="ghost" size="xs" />}
-        className={cn("min-w-0 text-muted-foreground/70 hover:text-foreground/80", className)}
+        className={cn(
+          "min-w-0 !bg-transparent !shadow-none text-muted-foreground/70 before:!shadow-none hover:!bg-transparent hover:text-foreground/80 active:!bg-transparent data-pressed:!bg-transparent data-[popup-open]:!bg-transparent data-[popup-open]:text-foreground/80 aria-expanded:!bg-transparent aria-expanded:text-foreground/80",
+          className,
+        )}
         disabled={(isBranchesSearchPending && branches.length === 0) || isBranchActionPending}
       >
         <span className="min-w-0 max-w-[240px] truncate">{triggerLabel}</span>

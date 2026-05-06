@@ -196,40 +196,6 @@ try {
     "Expected bun.lock to contain the smoke version.",
   );
 
-  const nightlyReleaseMetadata = execFileSync(
-    process.execPath,
-    [
-      resolve(repoRoot, "scripts/resolve-nightly-release.ts"),
-      "--date",
-      "20260413",
-      "--run-number",
-      "321",
-      "--sha",
-      "abcdef1234567890",
-      "--root",
-      tempRoot,
-    ],
-    {
-      cwd: repoRoot,
-      encoding: "utf8",
-    },
-  );
-  assertContains(
-    nightlyReleaseMetadata,
-    "version=9.9.10-nightly.20260413.321",
-    "Expected nightly metadata to contain the derived nightly version.",
-  );
-  assertContains(
-    nightlyReleaseMetadata,
-    "tag=v9.9.10-nightly.20260413.321",
-    "Expected nightly metadata to contain the derived nightly tag.",
-  );
-  assertContains(
-    nightlyReleaseMetadata,
-    "name=T3 Code Nightly 9.9.10-nightly.20260413.321 (abcdef123456)",
-    "Expected nightly metadata to include the short commit SHA in the release name.",
-  );
-
   const { arm64Path, x64Path } = writeMacManifestFixtures(tempRoot);
   execFileSync(
     process.execPath,
@@ -263,9 +229,6 @@ try {
     "latest",
   );
   const mergedWindowsManifestPath = resolve(tempRoot, "release-assets/latest.yml");
-  const { arm64Path: nightlyWinArm64Path, x64Path: nightlyWinX64Path } =
-    writeWindowsManifestFixtures(tempRoot, "nightly");
-  const mergedNightlyWindowsManifestPath = resolve(tempRoot, "release-assets/nightly.yml");
   const { arm64Path: previewWinArm64Path, x64Path: previewWinX64Path } =
     writeWindowsManifestFixtures(tempRoot, "preview");
   const mergedPreviewWindowsManifestPath = resolve(tempRoot, "release-assets/preview.yml");
@@ -322,17 +285,6 @@ try {
     "T3-Code-9.9.9-smoke.0-x64.exe",
     "Merged Windows manifest is missing the x64 asset.",
   );
-  const mergedNightlyWindowsManifest = readFileSync(mergedNightlyWindowsManifestPath, "utf8");
-  assertContains(
-    mergedNightlyWindowsManifest,
-    "T3-Code-9.9.9-smoke.0-arm64.exe",
-    "Merged nightly Windows manifest is missing the arm64 asset.",
-  );
-  assertContains(
-    mergedNightlyWindowsManifest,
-    "T3-Code-9.9.9-smoke.0-x64.exe",
-    "Merged nightly Windows manifest is missing the x64 asset.",
-  );
   const mergedPreviewWindowsManifest = readFileSync(mergedPreviewWindowsManifestPath, "utf8");
   assertContains(
     mergedPreviewWindowsManifest,
@@ -349,14 +301,6 @@ try {
     "Windows release smoke unexpectedly kept the arm64 updater manifest.",
   );
   assertMissing(winX64Path, "Windows release smoke unexpectedly kept the x64 updater manifest.");
-  assertMissing(
-    nightlyWinArm64Path,
-    "Windows release smoke unexpectedly kept the nightly arm64 updater manifest.",
-  );
-  assertMissing(
-    nightlyWinX64Path,
-    "Windows release smoke unexpectedly kept the nightly x64 updater manifest.",
-  );
   assertMissing(
     previewWinArm64Path,
     "Windows release smoke unexpectedly kept the preview arm64 updater manifest.",

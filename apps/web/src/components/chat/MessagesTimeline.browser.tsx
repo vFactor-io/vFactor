@@ -69,6 +69,8 @@ function buildProps() {
     resolvedTheme: "dark" as const,
     timestampFormat: "24-hour" as const,
     workspaceRoot: undefined,
+    activeProjectName: "ai-orchestrator-dev",
+    activeProjectCwd: null,
     onIsAtEndChange: vi.fn(),
   };
 }
@@ -104,9 +106,10 @@ describe("MessagesTimeline", () => {
 
     try {
       await expect
-        .element(page.getByText("Send a message to start the conversation."))
+        .element(page.getByText("What should we work on in ai-orchestrator-dev?"))
         .not.toBeInTheDocument();
-      await expect.element(page.getByText("Thinking - Inspecting repository state")).toBeVisible();
+      await expect.element(page.getByText("Thinking")).toBeVisible();
+      await expect.element(page.getByText("Inspecting repository state")).toBeVisible();
     } finally {
       await screen.unmount();
     }
@@ -126,7 +129,7 @@ describe("MessagesTimeline", () => {
 
     try {
       await expect
-        .element(page.getByText("Send a message to start the conversation."))
+        .element(page.getByText("What should we work on in ai-orchestrator-dev?"))
         .toBeVisible();
 
       await screen.rerender(
@@ -149,7 +152,8 @@ describe("MessagesTimeline", () => {
         />,
       );
 
-      await expect.element(page.getByText("Thinking - Inspecting repository state")).toBeVisible();
+      await expect.element(page.getByText("Thinking")).toBeVisible();
+      await expect.element(page.getByText("Inspecting repository state")).toBeVisible();
       expect(props.onIsAtEndChange).toHaveBeenCalledWith(true);
       expect(scrollToEndSpy).toHaveBeenCalledWith({ animated: false });
       expect(requestAnimationFrameSpy).toHaveBeenCalled();

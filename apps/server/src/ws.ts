@@ -894,6 +894,12 @@ const makeWsRpcLayer = (currentSessionId: AuthSessionId) =>
               .pipe(Effect.tap(() => refreshGitStatus(input.cwd))),
             { "rpc.aggregate": "git" },
           ),
+        [WS_METHODS.gitGetPullRequestChecks]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.gitGetPullRequestChecks,
+            gitManager.getPullRequestChecks(input),
+            { "rpc.aggregate": "git" },
+          ),
         [WS_METHODS.gitListBranches]: (input) =>
           observeRpcEffect(WS_METHODS.gitListBranches, git.listBranches(input), {
             "rpc.aggregate": "git",

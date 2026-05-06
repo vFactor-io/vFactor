@@ -139,8 +139,6 @@ async function mountMenu(props?: { modelSelection?: ModelSelection; prompt?: str
       interactionMode="default"
       planSidebarLabel="Plan"
       planSidebarOpen={false}
-      runtimeMode="approval-required"
-      showInteractionModeToggle
       traitsMenuContent={
         <TraitsMenuContent
           provider={provider}
@@ -154,7 +152,6 @@ async function mountMenu(props?: { modelSelection?: ModelSelection; prompt?: str
       }
       onToggleInteractionMode={vi.fn()}
       onTogglePlanSidebar={vi.fn()}
-      onRuntimeModeChange={vi.fn()}
     />,
     { container: host },
   );
@@ -301,11 +298,8 @@ describe("CompactComposerControlsMenu", () => {
         interactionMode="default"
         planSidebarLabel="Plan"
         planSidebarOpen={false}
-        runtimeMode="approval-required"
-        showInteractionModeToggle={false}
         onToggleInteractionMode={vi.fn()}
         onTogglePlanSidebar={vi.fn()}
-        onRuntimeModeChange={vi.fn()}
       />,
       { container: host },
     );
@@ -317,9 +311,9 @@ describe("CompactComposerControlsMenu", () => {
       expect(text).not.toContain("Mode");
       expect(text).not.toContain("Chat");
       expect(text).not.toContain("Plan");
-      expect(text).toContain("Access");
-      expect(text).toContain("Supervised");
-      expect(text).toContain("Full access");
+      expect(text).not.toContain("Access");
+      expect(text).not.toContain("Supervised");
+      expect(text).not.toContain("Full access");
     });
 
     await screen.unmount();

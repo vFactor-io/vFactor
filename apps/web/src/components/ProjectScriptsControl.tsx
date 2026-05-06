@@ -54,6 +54,8 @@ import { Popover, PopoverPopup, PopoverTrigger } from "./ui/popover";
 import { Switch } from "./ui/switch";
 import { Textarea } from "./ui/textarea";
 
+const headerActionIconClassName = "size-[1.05em]";
+
 const SCRIPT_ICONS: Array<{ id: ProjectScriptIcon; label: string }> = [
   { id: "play", label: "Play" },
   { id: "test", label: "Test" },
@@ -65,7 +67,7 @@ const SCRIPT_ICONS: Array<{ id: ProjectScriptIcon; label: string }> = [
 
 function ScriptIcon({
   icon,
-  className = "size-3.5",
+  className = headerActionIconClassName,
 }: {
   icon: ProjectScriptIcon;
   className?: string;
@@ -286,7 +288,7 @@ export default function ProjectScriptsControl({
             <MenuTrigger
               render={<Button size="icon-xs" variant="outline" aria-label="Script actions" />}
             >
-              <ChevronDownIcon className="size-4" />
+              <ChevronDownIcon className={headerActionIconClassName} />
             </MenuTrigger>
             <MenuPopup align="end">
               {scripts.map((script) => {
@@ -341,7 +343,7 @@ export default function ProjectScriptsControl({
         </Group>
       ) : (
         <Button size="xs" variant="outline" onClick={openAddDialog} title="Add action">
-          <PlusIcon className="size-3.5" />
+          <PlusIcon className={headerActionIconClassName} />
           <span className="sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5">
             Add action
           </span>

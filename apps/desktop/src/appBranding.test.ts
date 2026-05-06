@@ -7,21 +7,12 @@ describe("resolveDesktopAppStageLabel", () => {
     expect(
       resolveDesktopAppStageLabel({
         isDevelopment: true,
-        appVersion: "0.0.17-nightly.20260414.1",
+        appVersion: "0.0.17-beta.1",
       }),
     ).toBe("Dev");
   });
 
-  it("uses Nightly for packaged nightly builds", () => {
-    expect(
-      resolveDesktopAppStageLabel({
-        isDevelopment: false,
-        appVersion: "0.0.17-nightly.20260414.1",
-      }),
-    ).toBe("Nightly");
-  });
-
-  it("uses Alpha for packaged stable builds", () => {
+  it("uses Alpha for packaged builds", () => {
     expect(
       resolveDesktopAppStageLabel({
         isDevelopment: false,
@@ -36,12 +27,12 @@ describe("resolveDesktopAppBranding", () => {
     expect(
       resolveDesktopAppBranding({
         isDevelopment: false,
-        appVersion: "0.0.17-nightly.20260414.1",
+        appVersion: "0.0.17",
       }),
     ).toEqual({
-      baseName: "T3 Code",
-      stageLabel: "Nightly",
-      displayName: "T3 Code (Nightly)",
+      baseName: "vFactor",
+      stageLabel: "Alpha",
+      displayName: "vFactor (Alpha)",
     });
   });
 });
