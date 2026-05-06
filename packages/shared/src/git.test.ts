@@ -13,22 +13,22 @@ import {
 describe("normalizeGitRemoteUrl", () => {
   it("canonicalizes equivalent GitHub remotes across protocol variants", () => {
     expect(normalizeGitRemoteUrl("git@github.com:vFactor-io/vfactor-desktop.git")).toBe(
-      "github.com/t3tools/vfactor",
+      "github.com/vfactor-io/vfactor-desktop",
     );
     expect(normalizeGitRemoteUrl("https://github.com/vFactor-io/vfactor-desktop.git")).toBe(
-      "github.com/t3tools/vfactor",
+      "github.com/vfactor-io/vfactor-desktop",
     );
     expect(normalizeGitRemoteUrl("ssh://git@github.com/vFactor-io/vfactor-desktop")).toBe(
-      "github.com/t3tools/vfactor",
+      "github.com/vfactor-io/vfactor-desktop",
     );
   });
 
   it("preserves nested group paths for providers like GitLab", () => {
     expect(normalizeGitRemoteUrl("git@gitlab.com:vFactor/platform/T3Code.git")).toBe(
-      "gitlab.com/t3tools/platform/vfactor",
+      "gitlab.com/vfactor/platform/t3code",
     );
     expect(normalizeGitRemoteUrl("https://gitlab.com/vFactor/platform/T3Code.git")).toBe(
-      "gitlab.com/t3tools/platform/vfactor",
+      "gitlab.com/vfactor/platform/t3code",
     );
   });
 
