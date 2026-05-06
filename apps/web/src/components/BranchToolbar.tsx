@@ -127,6 +127,7 @@ const RuntimeModePicker = memo(function RuntimeModePicker({
                       <span
                         className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground/65 transition-colors data-[popup-open]:text-foreground"
                         aria-label={`${option.label} details`}
+                        title={option.description}
                         onClick={(event) => event.stopPropagation()}
                         onPointerDown={(event) => event.stopPropagation()}
                       />
