@@ -166,7 +166,7 @@ function ProviderLastChecked({ lastCheckedAt }: { lastCheckedAt: string | null }
   }
 
   return (
-    <span className="text-[11px] text-muted-foreground/60">
+    <span className="text-xs text-muted-foreground/60">
       {lastCheckedRelative.suffix ? (
         <>
           Checked <span className="font-mono tabular-nums">{lastCheckedRelative.value}</span>{" "}
@@ -183,7 +183,7 @@ function AboutVersionTitle() {
   return (
     <span className="inline-flex items-center gap-2">
       <span>Version</span>
-      <code className="text-[11px] font-medium text-muted-foreground">{APP_VERSION}</code>
+      <code className="text-xs font-medium text-muted-foreground">{APP_VERSION}</code>
     </span>
   );
 }
@@ -1280,7 +1280,7 @@ export function GeneralSettingsPanel() {
           description="Open the persisted `keybindings.json` file to edit advanced bindings directly."
           status={
             <>
-              <span className="block break-all font-mono text-[11px] text-foreground">
+              <span className="block break-all font-mono text-xs text-foreground">
                 {keybindingsConfigPath ?? "Resolving keybindings path..."}
               </span>
               {openKeybindingsError ? (
@@ -1317,7 +1317,7 @@ export function GeneralSettingsPanel() {
           description={diagnosticsDescription}
           status={
             <>
-              <span className="block break-all font-mono text-[11px] text-foreground">
+              <span className="block break-all font-mono text-xs text-foreground">
                 {logsDirectoryPath ?? "Resolving logs directory..."}
               </span>
               {openDiagnosticsError ? (

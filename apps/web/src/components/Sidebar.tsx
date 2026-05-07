@@ -141,7 +141,6 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarSeparator,
   SidebarTrigger,
   useSidebar,
 } from "./ui/sidebar";
@@ -1988,9 +1987,13 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
             <span
               aria-hidden="true"
               title={projectStatus.label}
-              className={`relative inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-sidebar-accent/55 ${projectStatus.colorClass}`}
+              className={`relative inline-flex size-[1.6em] shrink-0 items-center justify-center ${projectStatus.colorClass}`}
             >
-              <ProjectFavicon environmentId={project.environmentId} cwd={project.cwd} />
+              <ProjectFavicon
+                environmentId={project.environmentId}
+                cwd={project.cwd}
+                className="size-[1.35em]"
+              />
               <span className="absolute -right-0.5 -bottom-0.5 flex size-2.5 items-center justify-center rounded-full bg-sidebar">
                 <span
                   className={`size-1.5 rounded-full ${projectStatus.dotClass} ${
@@ -2000,8 +2003,12 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
               </span>
             </span>
           ) : (
-            <span className="relative flex size-5 shrink-0 items-center justify-center rounded-md bg-sidebar-accent/55 text-sidebar-foreground/68">
-              <ProjectFavicon environmentId={project.environmentId} cwd={project.cwd} />
+            <span className="relative flex size-[1.6em] shrink-0 items-center justify-center text-sidebar-foreground/68">
+              <ProjectFavicon
+                environmentId={project.environmentId}
+                cwd={project.cwd}
+                className="size-[1.35em]"
+              />
             </span>
           )}
           <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
@@ -2399,7 +2406,7 @@ const SidebarChromeHeader = memo(function SidebarChromeHeader({
             >
               <img
                 aria-hidden="true"
-                className="size-4 shrink-0 rounded-[4px]"
+                className="size-[1.35em] shrink-0 rounded-[4px]"
                 src="/favicon-32x32.png"
               />
               <span className="truncate text-sm font-semibold tracking-tight text-muted-foreground">
@@ -2447,8 +2454,8 @@ const SidebarChromeFooter = memo(function SidebarChromeFooter() {
             className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
             onClick={handleSettingsClick}
           >
-            <SettingsIcon className="size-3.5" />
-            <span className="text-xs">Settings</span>
+            <SettingsIcon className="size-[1em]" />
+            <span className="text-sm">Settings</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -3389,7 +3396,6 @@ export default function Sidebar() {
             projectsLength={projects.length}
           />
 
-          <SidebarSeparator />
           <SidebarChromeFooter />
         </>
       )}
