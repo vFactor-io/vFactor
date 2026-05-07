@@ -406,17 +406,17 @@ function summarizePullRequestChecks(
   const failedCheckNames = new Set<string>();
 
   for (const check of checks) {
-    switch (check.bucket) {
-      case "fail":
-      case "cancel":
+    switch (normalizePullRequestCheckStatus(check.bucket, check.state)) {
+      case "failed":
+      case "cancelled":
         failedChecksCount += 1;
         if (check.name?.trim()) failedCheckNames.add(check.name.trim());
         break;
       case "pending":
         pendingChecksCount += 1;
         break;
-      case "pass":
-      case "skipping":
+      case "passed":
+      case "skipped":
         passedChecksCount += 1;
         break;
       default:
@@ -447,25 +447,63 @@ function summarizePullRequestChecks(
 
 function normalizePullRequestCheckStatus(
   bucket: string | null | undefined,
+  state?: string | null | undefined,
 ): GitPullRequestCheck["status"] {
-  switch (bucket) {
+  switch (bucket?.trim().toLowerCase()) {
     case "fail":
+    case "failure":
+    case "failed":
+    case "error":
       return "failed";
     case "cancel":
+    case "cancelled":
+    case "canceled":
       return "cancelled";
     case "pending":
+    case "queued":
+    case "waiting":
+    case "in_progress":
       return "pending";
     case "pass":
+    case "passed":
+    case "success":
       return "passed";
     case "skipping":
+    case "skipped":
       return "skipped";
+  }
+
+  switch (state?.trim().toLowerCase()) {
+    case "success":
+    case "passed":
+    case "completed":
+      return "passed";
+    case "failure":
+    case "failed":
+    case "error":
+    case "action_required":
+    case "timed_out":
+      return "failed";
+    case "cancelled":
+    case "canceled":
+      return "cancelled";
+    case "skipped":
+    case "neutral":
+      return "skipped";
+    case "pending":
+    case "queued":
+    case "requested":
+    case "waiting":
+    case "in_progress":
+    case "expected":
+      return "pending";
     default:
       return "pending";
   }
 }
 
 function mapPullRequestCheck(rawCheck: RawPullRequestCheck): GitPullRequestCheck {
-  const status = normalizePullRequestCheckStatus(rawCheck.bucket);
+  const status = normalizePullRequestCheckStatus(rawCheck.bucket, rawCheck.state);
   const detailsUrl = rawCheck.link?.trim() || null;
   const normalizedName = rawCheck.name?.trim() || "Unnamed check";
 
@@ -1338,17 +1376,19 @@ export const makeGitManager = Effect.fn("makeGitManager")(function* () {
       );
 
     if (result.code !== 0) {
+      const error = result.stderr.trim() || fallbackError;
       return {
         items: [],
-        error: result.stderr.trim() || fallbackError,
+        error,
       } satisfies RawPullRequestActivityResult<T>;
     }
     if (!result.stdout.trim()) {
       return { items: [], error: null } satisfies RawPullRequestActivityResult<T>;
     }
 
+    const items = select(JSON.parse(result.stdout));
     return {
-      items: select(JSON.parse(result.stdout)),
+      items,
       error: null,
     } satisfies RawPullRequestActivityResult<T>;
   });

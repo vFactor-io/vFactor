@@ -19,7 +19,11 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import ChatMarkdown from "./ChatMarkdown";
-import { sortPullRequestChecks, summarizePullRequestChecks } from "./pullRequestChecks";
+import {
+  normalizePullRequestMarkdown,
+  sortPullRequestChecks,
+  summarizePullRequestChecks,
+} from "./pullRequestChecks";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { cn } from "~/lib/utils";
@@ -34,6 +38,8 @@ interface PullRequestChecksPanelProps {
   reviews: ReadonlyArray<GitPullRequestReview>;
   reviewComments: ReadonlyArray<GitPullRequestReviewComment>;
   isLoading: boolean;
+  isChecksLoading?: boolean;
+  isActivityLoading?: boolean;
   loadError: string | null;
   cwd?: string | undefined;
 }
@@ -98,6 +104,11 @@ function ExternalLink({
       {children}
     </a>
   );
+}
+
+function PullRequestMarkdown({ text, cwd }: { text: string; cwd?: string | undefined }) {
+  const normalizedText = useMemo(() => normalizePullRequestMarkdown(text), [text]);
+  return <ChatMarkdown text={normalizedText} cwd={cwd} />;
 }
 
 function statusToneClassName(status: GitPullRequestCheck["status"]) {
@@ -173,9 +184,11 @@ function EventTimestamp({ value }: { value: string | null | undefined }) {
 function ChecksBlock({
   pullRequest,
   checks,
+  isLoading,
 }: {
   pullRequest: PullRequest;
   checks: ReadonlyArray<GitPullRequestCheck>;
+  isLoading: boolean;
 }) {
   const sorted = useMemo(() => sortPullRequestChecks(checks), [checks]);
   const summary = summarizePullRequestChecks(pullRequest, checks);
@@ -187,7 +200,7 @@ function ChecksBlock({
     }
   }, [summary.tone]);
 
-  if (sorted.length === 0 && summary.totalCount === 0) {
+  if (sorted.length === 0 && summary.totalCount === 0 && !isLoading) {
     return null;
   }
 
@@ -208,7 +221,11 @@ function ChecksBlock({
         className="flex w-full items-center gap-2 py-1.5 text-left transition-colors"
         disabled={sorted.length === 0}
       >
-        {summaryIcon}
+        {isLoading && sorted.length === 0 && summary.totalCount === 0 ? (
+          <LoaderCircleIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+        ) : (
+          summaryIcon
+        )}
         <div
           className={cn(
             "min-w-0 truncate text-sm font-medium",
@@ -217,7 +234,9 @@ function ChecksBlock({
             summary.tone === "passed" && "text-emerald-500",
           )}
         >
-          {summary.label}
+          {isLoading && sorted.length === 0 && summary.totalCount === 0
+            ? "Loading checks"
+            : summary.label}
         </div>
         {sorted.length > 0 ? (
           <ChevronRightIcon
@@ -456,7 +475,7 @@ function Timeline({ items, cwd }: { items: TimelineItem[]; cwd?: string | undefi
             >
               {item.review.body ? (
                 <div className="rounded-xl border border-sidebar-border/60 bg-background/55 px-3 py-2.5 text-xs text-muted-foreground">
-                  <ChatMarkdown text={item.review.body} cwd={cwd} />
+                  <PullRequestMarkdown text={item.review.body} cwd={cwd} />
                 </div>
               ) : null}
             </TimelineFrame>
@@ -487,7 +506,7 @@ function Timeline({ items, cwd }: { items: TimelineItem[]; cwd?: string | undefi
             >
               {item.comment.body ? (
                 <div className="rounded-xl border border-sidebar-border/60 bg-background/55 px-3 py-2.5 text-xs text-muted-foreground">
-                  <ChatMarkdown text={item.comment.body} cwd={cwd} />
+                  <PullRequestMarkdown text={item.comment.body} cwd={cwd} />
                 </div>
               ) : null}
             </TimelineFrame>
@@ -525,14 +544,14 @@ function Timeline({ items, cwd }: { items: TimelineItem[]; cwd?: string | undefi
               )}
             >
               {item.thread.rootComment.body ? (
-                <ChatMarkdown text={item.thread.rootComment.body} cwd={cwd} />
+                <PullRequestMarkdown text={item.thread.rootComment.body} cwd={cwd} />
               ) : null}
               {item.thread.replies.length > 0 ? (
                 <div className="mt-2 space-y-2 border-l border-sidebar-border/50 pl-3">
                   {item.thread.replies.map((reply) => (
                     <div key={reply.id}>
                       <div className="text-xs font-medium text-foreground">{reply.authorLogin}</div>
-                      {reply.body ? <ChatMarkdown text={reply.body} cwd={cwd} /> : null}
+                      {reply.body ? <PullRequestMarkdown text={reply.body} cwd={cwd} /> : null}
                     </div>
                   ))}
                 </div>
@@ -553,6 +572,8 @@ export function PullRequestChecksPanel({
   reviews,
   reviewComments,
   isLoading,
+  isChecksLoading = isLoading,
+  isActivityLoading = false,
   loadError,
   cwd,
 }: PullRequestChecksPanelProps) {
@@ -579,7 +600,15 @@ export function PullRequestChecksPanel({
     normalizedChecks.length > 0 ||
     timelineItems.length > 0 ||
     Boolean(loadError) ||
-    shouldShowWaitingForChecks;
+    shouldShowWaitingForChecks ||
+    isChecksLoading ||
+    isActivityLoading;
+  const hasChecksSignal =
+    normalizedChecks.length > 0 || checksSummary.totalCount > 0 || shouldShowWaitingForChecks;
+  const emptyTitle = hasChecksSignal ? "No conversation yet" : "No activity yet";
+  const emptyDescription = hasChecksSignal
+    ? "Checks are visible here; reviews and comments will appear below when GitHub publishes them."
+    : "This pull request has not published checks, reviews, or comments yet.";
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto px-3 py-3">
@@ -599,7 +628,7 @@ export function PullRequestChecksPanel({
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-1">
                 <div className="text-xs leading-5 text-muted-foreground [&_h1]:!text-sm [&_h2]:!text-sm [&_h3]:!text-xs [&_p]:my-0 [&_p+p]:mt-1.5 [&_pre]:text-[11px] [&_code]:text-[11px]">
-                  <ChatMarkdown text={pullRequest.description} cwd={cwd} />
+                  <PullRequestMarkdown text={pullRequest.description} cwd={cwd} />
                 </div>
               </CollapsibleContent>
             </Collapsible>
@@ -612,29 +641,36 @@ export function PullRequestChecksPanel({
           </div>
         ) : null}
 
-        {isLoading ? (
-          <div className="flex items-center gap-2 py-1.5 text-sm text-muted-foreground">
-            <LoaderCircleIcon className="size-4 animate-spin" />
-            <span>Loading checks...</span>
-          </div>
-        ) : null}
+        <ChecksBlock
+          pullRequest={pullRequest}
+          checks={normalizedChecks}
+          isLoading={isChecksLoading}
+        />
 
-        <ChecksBlock pullRequest={pullRequest} checks={normalizedChecks} />
-
-        {timelineItems.length > 0 ? (
+        {timelineItems.length > 0 || isActivityLoading ? (
           <div className="flex flex-col gap-2">
-            <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground/72 uppercase">
-              Conversation
+            <div className="flex items-center gap-2 text-xs font-medium tracking-[0.08em] text-muted-foreground/72 uppercase">
+              <span>Conversation</span>
+              {isActivityLoading ? (
+                <LoaderCircleIcon className="size-3 animate-spin text-muted-foreground" />
+              ) : null}
             </div>
-            <Timeline items={timelineItems} cwd={cwd} />
+            {timelineItems.length > 0 ? (
+              <Timeline items={timelineItems} cwd={cwd} />
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-sidebar-border/50 bg-background/35 px-3 py-2 text-xs text-muted-foreground">
+                <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin" />
+                <span>Loading reviews and comments...</span>
+              </div>
+            )}
           </div>
         ) : null}
 
         {!hasAnyActivity && !loadError ? (
           <EmptyState
-            className="py-10"
-            title="No checks, reviews, or comments yet"
-            description="This pull request has not published any checks or discussion activity yet."
+            className="h-auto min-h-40 py-10"
+            title={emptyTitle}
+            description={emptyDescription}
           />
         ) : null}
       </div>
