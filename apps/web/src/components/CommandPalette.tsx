@@ -14,10 +14,12 @@ import {
   ArrowDownIcon,
   ArrowLeftIcon,
   ArrowUpIcon,
+  CheckIcon,
   CornerLeftUpIcon,
   FolderIcon,
   FolderPlusIcon,
   MessageSquareIcon,
+  PaletteIcon,
   SettingsIcon,
   SquarePenIcon,
 } from "lucide-react";
@@ -88,9 +90,11 @@ import {
   RECENT_THREAD_LIMIT,
 } from "./CommandPalette.logic";
 import { resolveEnvironmentOptionLabel } from "./BranchToolbar.logic";
+import { THEME_OPTIONS } from "../appearance/themeRegistry";
 import { CommandPaletteResults } from "./CommandPaletteResults";
 import { ProjectFavicon } from "./ProjectFavicon";
 import { ThreadRowLeadingStatus, ThreadRowTrailingStatus } from "./ThreadStatusIndicators";
+import { useAppearance } from "../hooks/useTheme";
 import { useServerKeybindings } from "../rpc/serverState";
 import { resolveShortcutCommand } from "../keybindings";
 import {
@@ -215,6 +219,7 @@ function OpenCommandPaletteDialog() {
   const queryClient = useQueryClient();
   const [highlightedItemValue, setHighlightedItemValue] = useState<string | null>(null);
   const settings = useSettings();
+  const { resolvedThemeId, setThemeId, themeId } = useAppearance();
   const { activeDraftThread, activeThread, defaultProjectRef, handleNewThread } =
     useHandleNewThread();
   const projects = useStore(useShallow(selectProjectsAcrossEnvironments));
@@ -595,6 +600,46 @@ function OpenCommandPaletteDialog() {
     [addProjectEnvironmentItems],
   );
 
+  const themeItems = useMemo<CommandPaletteActionItem[]>(
+    () =>
+      THEME_OPTIONS.map((option) => {
+        const isSelected = option.id === themeId;
+        return {
+          kind: "action",
+          value: `theme:${option.id}`,
+          searchTerms: [
+            option.label,
+            option.id,
+            option.id === "system" ? "auto appearance light dark" : "",
+          ],
+          title: option.label,
+          ...(option.id === "system"
+            ? {
+                description: `Follow system (${
+                  resolvedThemeId === "vfactor-dark" ? "dark" : "light"
+                })`,
+              }
+            : {}),
+          icon: <PaletteIcon className={ITEM_ICON_CLASS} />,
+          titleTrailingContent: isSelected ? (
+            <CheckIcon className="ms-auto size-3.5 shrink-0 text-primary" />
+          ) : null,
+          preview: () => {
+            setThemeId(option.id);
+          },
+          run: async () => {
+            setThemeId(option.id);
+          },
+        };
+      }),
+    [resolvedThemeId, setThemeId, themeId],
+  );
+
+  const themeGroups = useMemo<CommandPaletteView["groups"]>(
+    () => [{ value: "themes", label: "Themes", items: themeItems }],
+    [themeItems],
+  );
+
   const openAddProjectFlow = useCallback(() => {
     if (addProjectEnvironmentOptions.length > 1) {
       pushPaletteView({
@@ -697,6 +742,17 @@ function OpenCommandPaletteDialog() {
       },
     });
   }
+
+  actionItems.push({
+    kind: "submenu",
+    value: "action:theme",
+    searchTerms: ["theme", "appearance", "color scheme", "dark mode", "light mode"],
+    title: "Theme",
+    description: THEME_OPTIONS.find((option) => option.id === themeId)?.label ?? "System",
+    icon: <PaletteIcon className={ITEM_ICON_CLASS} />,
+    addonIcon: <PaletteIcon className={ADDON_ICON_CLASS} />,
+    groups: themeGroups,
+  });
 
   actionItems.push({
     kind: "action",
@@ -953,6 +1009,22 @@ function OpenCommandPaletteDialog() {
     });
   }
 
+  function previewHighlightedItem(value: unknown, eventDetails?: { reason?: string }): void {
+    const itemValue = typeof value === "string" ? value : null;
+    setHighlightedItemValue(itemValue);
+    if (!itemValue || eventDetails?.reason !== "keyboard") {
+      return;
+    }
+
+    for (const group of displayedGroups) {
+      const item = group.items.find((candidate) => candidate.value === itemValue);
+      if (item?.kind === "action") {
+        item.preview?.();
+        return;
+      }
+    }
+  }
+
   const handleOpenProjectFromFileManager = useCallback(async () => {
     if (!canOpenProjectFromFileManager || isPickingProjectFolder) {
       return;
@@ -1003,9 +1075,7 @@ function OpenCommandPaletteDialog() {
         aria-label="Command palette"
         autoHighlight={isBrowsing ? false : "always"}
         mode="none"
-        onItemHighlighted={(value) => {
-          setHighlightedItemValue(typeof value === "string" ? value : null);
-        }}
+        onItemHighlighted={previewHighlightedItem}
         onValueChange={handleQueryChange}
         value={query}
       >
