@@ -67,16 +67,16 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
                     isActive={isActive}
                     className={
                       isActive
-                        ? "gap-2.5 px-2.5 py-2 text-left text-[13px] font-medium text-foreground"
-                        : "gap-2.5 px-2.5 py-2 text-left text-[13px] text-muted-foreground/70 hover:text-foreground/80"
+                        ? "gap-2.5 px-2.5 py-2 text-left text-sm font-medium text-foreground"
+                        : "gap-2.5 px-2.5 py-2 text-left text-sm text-muted-foreground/70 hover:text-foreground/80"
                     }
                     onClick={() => handleSectionClick(item.to)}
                   >
                     <Icon
                       className={
                         isActive
-                          ? "size-4 shrink-0 text-foreground"
-                          : "size-4 shrink-0 text-muted-foreground/60"
+                          ? "size-[1em] shrink-0 text-foreground"
+                          : "size-[1em] shrink-0 text-muted-foreground/60"
                       }
                     />
                     <span className="truncate">{item.label}</span>

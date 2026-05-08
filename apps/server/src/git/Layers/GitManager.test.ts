@@ -50,6 +50,7 @@ interface FakeGhScenario {
     headRepositoryOwnerLogin?: string | null;
   };
   repositoryCloneUrls?: Record<string, { url: string; sshUrl: string }>;
+  pullRequestChecks?: unknown[];
   failWith?: GitHubCliError;
 }
 
@@ -436,6 +437,16 @@ function createGitHubCliWithFakeGh(scenario: FakeGhScenario = {}): {
       });
     }
 
+    if (args[0] === "pr" && args[1] === "checks") {
+      return Effect.succeed({
+        stdout: `${JSON.stringify(scenario.pullRequestChecks ?? [])}\n`,
+        stderr: "",
+        code: 0,
+        signal: null,
+        timedOut: false,
+      });
+    }
+
     if (args[0] === "pr" && args[1] === "checkout") {
       return Effect.try({
         try: () => {
@@ -621,6 +632,13 @@ function resolvePullRequest(manager: GitManagerShape, input: { cwd: string; refe
   return manager.resolvePullRequest(input);
 }
 
+function getPullRequestChecks(
+  manager: GitManagerShape,
+  input: Parameters<GitManagerShape["getPullRequestChecks"]>[0],
+) {
+  return manager.getPullRequestChecks(input);
+}
+
 function preparePullRequestThread(
   manager: GitManagerShape,
   input: GitPreparePullRequestThreadInput,
@@ -711,6 +729,67 @@ it.layer(GitManagerTestLayer)("GitManager", (it) => {
         headBranch: "feature/status-open-pr",
         state: "open",
       });
+    }),
+  );
+
+  it.effect("pull request checks maps completed state values instead of leaving them pending", () =>
+    Effect.gen(function* () {
+      const repoDir = yield* makeTempDir("vfactor-git-manager-");
+      yield* initRepo(repoDir);
+      yield* runGit(repoDir, ["checkout", "-b", "feature/completed-checks"]);
+      const remoteDir = yield* createBareRemote();
+      yield* runGit(repoDir, ["remote", "add", "origin", remoteDir]);
+      yield* runGit(repoDir, ["push", "-u", "origin", "feature/completed-checks"]);
+
+      const { manager } = yield* makeManager({
+        ghScenario: {
+          prListSequence: [
+            JSON.stringify([
+              {
+                number: 22,
+                title: "Completed checks",
+                url: "https://github.com/pingdotgg/codething-mvp/pull/22",
+                baseRefName: "main",
+                headRefName: "feature/completed-checks",
+                state: "OPEN",
+              },
+            ]),
+          ],
+          pullRequest: {
+            number: 22,
+            title: "Completed checks",
+            url: "https://github.com/pingdotgg/codething-mvp/pull/22",
+            baseRefName: "main",
+            headRefName: "feature/completed-checks",
+            state: "open",
+          },
+          pullRequestChecks: [
+            {
+              name: "typecheck",
+              state: "SUCCESS",
+              workflow: "CI",
+              completedAt: "2026-05-07T08:00:00Z",
+            },
+            {
+              name: "lint",
+              bucket: "success",
+              state: "COMPLETED",
+              workflow: "CI",
+              completedAt: "2026-05-07T08:01:00Z",
+            },
+          ],
+        },
+      });
+
+      const result = yield* getPullRequestChecks(manager, {
+        cwd: repoDir,
+        includeActivity: false,
+      });
+
+      expect(result.pullRequest?.checksStatus).toBe("passed");
+      expect(result.pullRequest?.pendingChecksCount).toBe(0);
+      expect(result.pullRequest?.passedChecksCount).toBe(2);
+      expect(result.checks.map((check) => check.status)).toEqual(["passed", "passed"]);
     }),
   );
 

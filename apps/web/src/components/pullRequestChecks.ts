@@ -1,5 +1,47 @@
 import type { GitPullRequestCheck, GitStatusResult } from "@t3tools/contracts";
 
+const VERCEL_AGENT_REQUEST_REVIEW_ANCHOR_PATTERN =
+  /<a\b[^>]*href=(["'])(https:\/\/vercel\.com\/vercel-agent\/request-review\?[^"']+)\1[^>]*>[\s\S]*?<\/a>/gi;
+
+function escapeMarkdownImageLabel(label: string): string {
+  return label.replace(/([\\[\]])/g, "\\$1");
+}
+
+function extractVercelAgentBadgeImage(markup: string): { src: string; alt: string } | null {
+  const imageMatch =
+    /<img\b[^>]*src=(["'])(https:\/\/agents-vade-review\.vercel\.sh\/request-review-(?:light|dark)\.svg)\1[^>]*>/i.exec(
+      markup,
+    );
+  if (!imageMatch) {
+    return null;
+  }
+
+  const src = imageMatch[2];
+  if (!src) {
+    return null;
+  }
+
+  const altMatch = /<img\b[^>]*alt=(["'])([^"']*)\1/i.exec(markup);
+  return {
+    src,
+    alt: altMatch?.[2]?.trim() || "Request Review",
+  };
+}
+
+export function normalizePullRequestMarkdown(text: string): string {
+  return text.replace(
+    VERCEL_AGENT_REQUEST_REVIEW_ANCHOR_PATTERN,
+    (match: string, _quote: string, href: string) => {
+      const image = extractVercelAgentBadgeImage(match);
+      if (!image) {
+        return match;
+      }
+
+      return `[![${escapeMarkdownImageLabel(image.alt)}](${image.src})](${href})`;
+    },
+  );
+}
+
 export function isActionablePullRequestChecksError(
   error: string | null | undefined,
 ): error is string {

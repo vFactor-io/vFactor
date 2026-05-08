@@ -200,7 +200,7 @@ function ProviderAuthEmail(props: {
             <button
               type="button"
               className={cn(
-                "min-w-0 cursor-pointer rounded-sm font-mono text-[11px] leading-none transition hover:text-foreground",
+                "min-w-0 cursor-pointer rounded-sm font-mono text-xs leading-none transition hover:text-foreground",
                 revealed ? "text-muted-foreground" : "select-none text-muted-foreground blur-[2px]",
               )}
               onClick={() => setRevealed((value) => !value)}
@@ -626,7 +626,7 @@ export function ProviderInstanceCard({
                   statusDotClassName={statusStyle.dot}
                   className="size-5"
                   iconClassName="size-4 text-foreground/80"
-                  badgeClassName="right-[-0.125rem] bottom-[-0.125rem] h-3 min-w-3 text-[7px]"
+                  badgeClassName="right-[-0.125rem] bottom-[-0.125rem] h-3 min-w-3 text-[0.55em]"
                 />
               ) : FallbackIconComponent ? (
                 <span className="relative inline-flex size-5 shrink-0 items-center justify-center">
@@ -649,7 +649,7 @@ export function ProviderInstanceCard({
                 // label. Custom instances (and any instance the user has
                 // since renamed) keep the chip so their slug stays
                 // visible for copy/paste + disambiguation.
-                <code className="truncate rounded bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground">
+                <code className="truncate rounded bg-muted/60 px-1 py-0.5 text-xs text-muted-foreground">
                   {instanceId}
                 </code>
               ) : null}

@@ -94,6 +94,8 @@ const ChecksPanelContent = (props: {
         reviews={checks.reviews}
         reviewComments={checks.reviewComments}
         isLoading={checks.isLoading}
+        isChecksLoading={checks.isChecksLoading}
+        isActivityLoading={checks.isActivityLoading}
         loadError={checks.loadError}
         cwd={props.cwd ?? undefined}
       />
